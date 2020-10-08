@@ -211,7 +211,7 @@ color4 distortion(in sViewport vp, in sCoord distLoc, in float intensity)
         (
             (
                 normalize(loc - distLoc) * 
-                1.0/distance(loc,distLoc)
+                intensity/distance(loc,distLoc)
             )
             - distLoc
         );
