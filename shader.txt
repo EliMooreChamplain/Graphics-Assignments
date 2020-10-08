@@ -1,3 +1,6 @@
+//Eli Moore
+//Lab 5
+//
 // GLSL STARTER CODE BY DANIEL S. BUCKSTEIN
 
 //------------------------------------------------------------
