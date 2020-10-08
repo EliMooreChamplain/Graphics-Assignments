@@ -174,11 +174,12 @@ color4 crossFade(in sViewport vp, in float blendParameter)
 {
     sCoord px = vp.pixelCoord;
     
+    
     sDCoord res1 = iChannelResolution[0].xy;
     sDCoord res2 = iChannelResolution[1].xy;
     
-    sCoord loc1 = px / res1; //relative to texture (input)
-    sCoord loc2 = px / res2; //relative to texture (input)
+    sCoord loc1 = px / res1;
+    sCoord loc2 = px / res2;
     
     sScalar ratio1 = res1.y * vp.resolutionInv.y;
     sScalar ratio2 = res2.y * vp.resolutionInv.y;
@@ -216,6 +217,8 @@ color4 distortion(in sViewport vp, in sCoord distLoc, in float intensity)
     return texture(iChannel0, distort);
 }
 
+
+//Couldn't figure this out
 color4 shading(in sViewport vp, in sRay r, in sPoint planePoint, in vec3 normal, in sPoint lightPoint)
 {
     
@@ -263,19 +266,14 @@ color4 shading(in sViewport vp, in sRay r, in sPoint planePoint, in vec3 normal,
     return diffuseIntensity * texture(iChannel0,loc);
 }
 
-color4 cubeMap(sViewPort vp)
+color4 cubeMap(sViewport vp, in sRay r)
 {
-    sCoord px = vp.pixelCoord;
-    
-    sDCoord res = iChannelResolution[0].xy;
-    
-    sCoord loc = px / res; //relative to texture (input)
-    
-    sScalar ratio = res.y * vp.resolutionInv.y;
-    
-    loc = ratio * loc;
-    
-    return texture(iChannel0, vec3(0,0,0));
+    return texture(iChannel2, 
+                   vec3(
+                       cos(iTime) * r.direction.x - sin(iTime) * r.direction.z,
+                       r.direction.y,
+                       sin(iTime) * r.direction.x + cos(iTime) * r.direction.z
+                   ));
     
     
 }
@@ -311,7 +309,7 @@ color4 calcColor(in sViewport vp, in sRay ray)
     
     //return shading(vp, ray, sPoint(0.0,0.0,0.0,1.0), vec3(0.0,0.0,1.0), sPoint(0.5,1.0,-0.5,1.0));
     
-    return cubeMap(vp);
+    return cubeMap(vp, ray);
     
 }
 
