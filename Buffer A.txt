@@ -14,7 +14,12 @@ color4 calcColor(in sViewport vp, in sRay ray)
     //return color4(lengthSq(vp.viewportPoint.xy) >= 0.25); // pass
     //return color4(vp.uv, 0.0, 0.0);
     //return color4(vp.ndc, 0.0, 0.0);
-    return asPoint(sBasis(vp.viewportPoint.xy, -vp.viewportPoint.z));
+    return texture(iChannel0, 
+                   vec3(
+                       cos(iTime) * ray.direction.x - sin(iTime) * ray.direction.z,
+                       ray.direction.y,
+                       sin(iTime) * ray.direction.x + cos(iTime) * ray.direction.z
+                   ));
 }
 
 
