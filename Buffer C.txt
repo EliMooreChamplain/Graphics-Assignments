@@ -15,39 +15,35 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     
     color4 finalColor;
     
+    float weight = 4.0;
+    float kernelLength = 3.0;
+    
     vec3 relativeXY = vec3(-1,0,1);
     
-    mat3 kernel;
-    kernel[0] = vec3(1.0,2.0,1.0);
-    kernel[1] = vec3(2.0,4.0,2.0);
-    kernel[2] = vec3(1.0,2.0,1.0);
+    float middleIndex = floor(kernelLength * 0.5);
     
-    int i = 0;
-    int j = 0;
+    for(float i = 0.0; i < kernelLength; i++)
+    {
+        for(float j = 0.0; j < kernelLength; j++)
+        {
+            
+            finalColor += 
+                (
+                    (
+                        weight /
+                    	pow(2.0,abs(middleIndex - i))
+                    ) /
+                    
+                    pow(2.0,abs(middleIndex - j))
+                    
+                    
+                )
+                * texture(iChannel0, uv + vec2(abs(middleIndex - i),abs(middleIndex - j)));
+        }
+    }
     
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    i = 0;
-    j++;
+    finalColor /= 16.0;
     
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    i = 0;
-    j++;
-    
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
-    i++;
-    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
     
     
     // TESTING
