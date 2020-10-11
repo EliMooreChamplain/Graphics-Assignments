@@ -13,7 +13,27 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     // test UV for input image
     sCoord uv = fragCoord / iChannelResolution[0].xy;
     
+    color4 textureColor = texture(iChannel0, uv);
+    
+    float averageBrightness = (textureColor.x + textureColor.y + textureColor.z) * 0.333333;
+    
+    float threshold = 0.65;
+    
+    color4 finalColor = vec4(averageBrightness,averageBrightness,averageBrightness,1.0);
+    
+    //Using desmos
+    //t = threshold
+    //F(x)=(x-t)(1/(1-t))x
+    
+    finalColor -= vec4(threshold,threshold,threshold,1.0);
+    
+    finalColor *= (1.0/(1.0 - threshold)) * textureColor;
+    
+    //if(averageBrightness < threshold){finalColor = vec4(0,0,0,0);}
+    
+    
+        
     // TESTING
     // set iChannel0 to 'Misc/Buffer A' and fetch sample
-    fragColor = texture(iChannel0, uv);
+    fragColor = finalColor;
 }
