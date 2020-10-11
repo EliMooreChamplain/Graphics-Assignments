@@ -1,0 +1,56 @@
+// GLSL STARTER CODE BY DANIEL S. BUCKSTEIN
+//  -> IMAGE TAB (final)
+
+//------------------------------------------------------------
+// SHADERTOY MAIN
+
+// mainImage: process the current pixel (exactly one call per pixel)
+//    fragColor: output final color for current pixel
+//    fragCoord: input location of current pixel in image (in pixels)
+void mainImage(out color4 fragColor, in sCoord fragCoord)
+{
+    // setup
+    // test UV for input image
+    sCoord uv = fragCoord / iChannelResolution[0].xy;
+    
+    color4 finalColor;
+    
+    vec3 relativeXY = vec3(-1,0,1);
+    
+    mat3 kernel;
+    kernel[0] = vec3(1.0,2.0,1.0);
+    kernel[1] = vec3(2.0,4.0,2.0);
+    kernel[2] = vec3(1.0,2.0,1.0);
+    
+    int i = 0;
+    int j = 0;
+    
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    i = 0;
+    j++;
+    
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    i = 0;
+    j++;
+    
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    i++;
+    finalColor += kernel[j][i] * texture(iChannel0, uv + vec2(relativeXY[i],relativeXY[j]));
+    
+    
+    // TESTING
+    // set iChannel0 to 'Misc/Buffer A' and fetch sample
+    fragColor = finalColor;
+}
