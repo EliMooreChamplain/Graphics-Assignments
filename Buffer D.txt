@@ -1,7 +1,7 @@
 //Eli Moore
 //Lab 6
 // GLSL STARTER CODE BY DANIEL S. BUCKSTEIN
-//  -> IMAGE TAB (final)
+//  -> BUFFER D TAB
 
 //------------------------------------------------------------
 // SHADERTOY MAIN
@@ -16,6 +16,8 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     sCoord uv = fragCoord / iChannelResolution[0].xy;
     
     // TESTING
-    // set iChannel0 to 'Misc/Buffer D' and fetch sample
-    fragColor = texture(iChannel0, uv);
+    // set iChannel0 to 'Misc/Buffer C' and fetch sample
+    fragColor = texture(iChannel0, uv) + texture(iChannel1, uv);
+    
+    //fragColor = mix(texture(iChannel0, uv), texture(iChannel1, uv), 0.5);
 }

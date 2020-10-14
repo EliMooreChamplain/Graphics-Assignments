@@ -1,3 +1,5 @@
+//Eli Moore
+//Lab 6
 // GLSL STARTER CODE BY DANIEL S. BUCKSTEIN
 //  -> BUFFER A TAB (scene)
 

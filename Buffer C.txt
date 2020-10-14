@@ -1,5 +1,7 @@
+//Eli Moore
+//Lab 6
 // GLSL STARTER CODE BY DANIEL S. BUCKSTEIN
-//  -> IMAGE TAB (final)
+//  -> BUFFER C TAB
 
 //------------------------------------------------------------
 // SHADERTOY MAIN
@@ -12,41 +14,42 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     // setup
     // test UV for input image
     sCoord uv = fragCoord / iChannelResolution[0].xy;
-    
+
     color4 finalColor;
     
-    float weight = 4.0;
-    float kernelLength = 3.0;
+    finalColor +=       texture(iChannel0, uv + vec2(-2.0,-2.0)/iChannelResolution[0].xy);
+    finalColor += 4.0 * texture(iChannel0, uv + vec2(-1.0,-2.0)/iChannelResolution[0].xy);
+    finalColor += 6.0 * texture(iChannel0, uv + vec2(0.0,-2.0)/iChannelResolution[0].xy);
+    finalColor += 4.0 * texture(iChannel0, uv + vec2(1.0,-2.0)/iChannelResolution[0].xy);
+    finalColor +=       texture(iChannel0, uv + vec2(2.0,-2.0)/iChannelResolution[0].xy);
     
-    vec3 relativeXY = vec3(-1,0,1);
+    finalColor += 4.0 *  texture(iChannel0, uv + vec2(-2.0,-1.0)/iChannelResolution[0].xy);
+    finalColor += 16.0 * texture(iChannel0, uv + vec2(-1.0,-1.0)/iChannelResolution[0].xy);
+    finalColor += 24.0 * texture(iChannel0, uv + vec2(0.0,-1.0)/iChannelResolution[0].xy);
+    finalColor += 16.0 * texture(iChannel0, uv + vec2(1.0,-1.0)/iChannelResolution[0].xy);
+    finalColor += 4.0 *  texture(iChannel0, uv + vec2(2.0,-1.0)/iChannelResolution[0].xy);
     
-    float middleIndex = floor(kernelLength * 0.5);
+    finalColor += 6.0 *  texture(iChannel0, uv + vec2(-2.0,0.0)/iChannelResolution[0].xy);
+    finalColor += 24.0 * texture(iChannel0, uv + vec2(-1.0,0.0)/iChannelResolution[0].xy);
+    finalColor += 36.0 * texture(iChannel0, uv + vec2(0.0,0.0)/iChannelResolution[0].xy);
+    finalColor += 24.0 * texture(iChannel0, uv + vec2(1.0,0.0)/iChannelResolution[0].xy);
+    finalColor += 6.0 *  texture(iChannel0, uv + vec2(2.0,0.0)/iChannelResolution[0].xy);
     
-    for(float i = 0.0; i < kernelLength; i++)
-    {
-        for(float j = 0.0; j < kernelLength; j++)
-        {
-            
-            finalColor += 
-                (
-                    (
-                        weight /
-                    	pow(2.0,abs(middleIndex - i))
-                    ) /
-                    
-                    pow(2.0,abs(middleIndex - j))
-                    
-                    
-                )
-                * texture(iChannel0, uv + vec2(abs(middleIndex - i),abs(middleIndex - j)));
-        }
-    }
+    finalColor += 4.0 *  texture(iChannel0, uv + vec2(-2.0,1.0)/iChannelResolution[0].xy);
+    finalColor += 16.0 * texture(iChannel0, uv + vec2(-1.0,1.0)/iChannelResolution[0].xy);
+    finalColor += 24.0 * texture(iChannel0, uv + vec2(0.0,1.0)/iChannelResolution[0].xy);
+    finalColor += 16.0 * texture(iChannel0, uv + vec2(1.0,1.0)/iChannelResolution[0].xy);
+    finalColor += 4.0 *  texture(iChannel0, uv + vec2(2.0,1.0)/iChannelResolution[0].xy);
     
-    finalColor /= 16.0;
+    finalColor +=       texture(iChannel0, uv + vec2(-2.0,2.0)/iChannelResolution[0].xy);
+    finalColor += 4.0 * texture(iChannel0, uv + vec2(-1.0,2.0)/iChannelResolution[0].xy);
+    finalColor += 6.0 * texture(iChannel0, uv + vec2(0.0,2.0)/iChannelResolution[0].xy);
+    finalColor += 4.0 * texture(iChannel0, uv + vec2(1.0,2.0)/iChannelResolution[0].xy);
+    finalColor +=       texture(iChannel0, uv + vec2(2.0,2.0)/iChannelResolution[0].xy);
     
-    
-    
+    finalColor *= 0.00390625;//Reciprical of 256
+
     // TESTING
-    // set iChannel0 to 'Misc/Buffer A' and fetch sample
+    // set iChannel0 to 'Misc/Buffer B' and fetch sample
     fragColor = finalColor;
 }
