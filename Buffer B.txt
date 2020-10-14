@@ -17,20 +17,18 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     
     color4 textureColor = texture(iChannel0, uv);
     
+	//Get average brightness of the pixel
     float averageBrightness = (textureColor.x + textureColor.y + textureColor.z) * 0.333333;
-    
-    float threshold = 0.65;
-    
     color4 finalColor = vec4(averageBrightness,averageBrightness,averageBrightness,1.0);
     
-    //Using desmos
+	//---Old Code---
+    //Using desmos:
     //t = threshold
     //F(x)=(x-t)(1/(1-t))x
-   
     //finalColor -= vec4(threshold,threshold,threshold,1.0);
-    
     //finalColor *= (1.0/(1.0 - threshold)) * textureColor;
     
+	//Cube the final color to get bright brights and dark darks
     finalColor *= finalColor;
     finalColor *= finalColor;
     

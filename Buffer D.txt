@@ -11,13 +11,12 @@
 //    fragCoord: input location of current pixel in image (in pixels)
 void mainImage(out color4 fragColor, in sCoord fragCoord)
 {
-    // setup
-    // test UV for input image
+    //Set uv
     sCoord uv = fragCoord / iChannelResolution[0].xy;
-    
-    // TESTING
-    // set iChannel0 to 'Misc/Buffer C' and fetch sample
+	
+	//Add the original texture with the bloom pass
     fragColor = texture(iChannel0, uv) + texture(iChannel1, uv);
     
+	//Use the mix function (Didn't work as well)
     //fragColor = mix(texture(iChannel0, uv), texture(iChannel1, uv), 0.5);
 }

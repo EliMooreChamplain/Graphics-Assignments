@@ -16,7 +16,7 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     sCoord uv = fragCoord / iChannelResolution[0].xy;
 
     color4 finalColor;
-    
+    //Add up the pixels and multiply by the 5x5 matrix
     finalColor +=       texture(iChannel0, uv + vec2(-2.0,-2.0)/iChannelResolution[0].xy);
     finalColor += 4.0 * texture(iChannel0, uv + vec2(-1.0,-2.0)/iChannelResolution[0].xy);
     finalColor += 6.0 * texture(iChannel0, uv + vec2(0.0,-2.0)/iChannelResolution[0].xy);
@@ -47,9 +47,9 @@ void mainImage(out color4 fragColor, in sCoord fragCoord)
     finalColor += 4.0 * texture(iChannel0, uv + vec2(1.0,2.0)/iChannelResolution[0].xy);
     finalColor +=       texture(iChannel0, uv + vec2(2.0,2.0)/iChannelResolution[0].xy);
     
+	//Divide by 256
     finalColor *= 0.00390625;//Reciprical of 256
 
-    // TESTING
     // set iChannel0 to 'Misc/Buffer B' and fetch sample
     fragColor = finalColor;
 }
