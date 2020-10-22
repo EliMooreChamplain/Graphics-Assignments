@@ -19,26 +19,33 @@ vec2 uvToPoint(in float x, in float y)
     return uvToPoint(vec2(x,y));
 }
 
+float pointToUV(in float scalar)
+{
+    return scalar * 0.01;
+}
+
+float uvToPoint(in float scalar)
+{
+    return scalar * 100.0;
+}
 
 
-vec4 createPoint(in vec2 uv, in vec2 resolution, in vec2 pos, in float size)
+
+bool createPoint(in vec2 uv, in vec2 resolution, in vec2 pos, in float size)
 {
     float ratio = resolution.x/resolution.y;
     
     float d = distance(
-        vec2(
-            	ratio * uv.x,
-            	uv.y
-            ),
-        vec2(
-            	ratio * pos.x,
-            	pos.y
-        	)
+         	uv * vec2(ratio,1.0),
+            pos * vec2(ratio,1.0)
     );
-    float a = float(d < size);
     
+    return d < size;
     
-    return vec4(a,a,a,1.0);
-    
+}
+
+vec4 createRay(in vec2 origin, in vec2 position, in vec2 width)
+{
+    return vec4(0.0,0.0,0.0,0.0);
 }
 

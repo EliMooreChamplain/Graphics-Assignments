@@ -4,7 +4,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     vec2 mouseuv = iMouse.xy/iResolution.xy;
     
-    vec2 point = uvToPoint(pointToUV(0.5,0.5));
+    vec2 point = vec2(0,0);
     
-    fragColor = createPoint(uv, iResolution.xy, point, 0.05);
+    fragColor = float(createPoint(uv, iResolution.xy, pointToUV(point), pointToUV(5.0))) * vec4(0,0,1,1);
 }
