@@ -44,8 +44,94 @@ bool createPoint(in vec2 uv, in vec2 resolution, in vec2 pos, in float size)
     
 }
 
-vec4 createRay(in vec2 origin, in vec2 position, in vec2 width)
+struct sRay
 {
-    return vec4(0.0,0.0,0.0,0.0);
+    vec2 origin;
+    vec2 direction;
+};
+
+sRay initRay(in vec2 origin, in vec2 direction)
+{
+    sRay ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    return ray;
 }
 
+sRay rayFromLineSeg(in vec2 start, in vec2 end)
+{
+    return initRay(start, end-start);
+}
+
+bool drawRay(in vec2 uv, in vec2 resolution, in sRay ray, in float width, in float numPoints)
+{
+    
+    vec2 directionInc = ray.direction/numPoints;
+    bool result = false;
+    
+    for(float i = 0.0; i <= numPoints; i += 1.0)
+    {
+        result = result || createPoint(uv,resolution,ray.origin + (directionInc * i),width);
+    }
+    
+    return result;
+}
+
+struct sPlayer
+{
+    vec2 pos;
+};
+    
+sPlayer initPlayer(in vec2 pos)
+{
+    sPlayer player;
+    player.pos = pos;
+    return player;
+}
+    
+struct sScene
+{
+    sPlayer player;
+    vec2 uv;
+    vec2 resolution;
+    float pointSize;
+    float lineWidth;
+    bool result;
+};
+    
+sScene initScene(in vec2 uv, in vec2 resolution, in vec2 playerPos)
+{
+    sScene scene;
+    
+    scene.uv = uv;
+    scene.resolution = resolution;
+    scene.player = initPlayer(playerPos);
+    scene.result = false;
+    scene.pointSize = uvToPoint(10.0);
+    scene.lineWidth = scene.pointSize;
+    return scene;
+}
+
+vec4 showScene(in sScene scene, vec2 uv, vec2 resolution, vec4 color)
+{
+    //addSceneElement(scene, scene.player.pos.xy);
+    vec4 fragColor = float(scene.result) * color;
+    return fragColor;
+}
+
+void addSceneElement(sScene scene, sRay ray)
+{
+    scene.result = scene.result || drawRay(scene.uv, scene.resolution,ray,scene.lineWidth, 100.0);
+}
+
+void addSceneElement(sScene scene, vec2 point)
+{
+    scene.result = scene.result || createPoint(scene.uv,scene.resolution,point,scene.pointSize);
+}
+
+
+
+void setPlayerPos(out sScene scene, in vec2 pos)
+{
+    scene.player = initPlayer(pos);
+}
