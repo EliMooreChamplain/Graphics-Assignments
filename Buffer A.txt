@@ -1,0 +1,10 @@
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = fragCoord/iResolution.xy;
+    
+    vec2 mouseuv = iMouse.xy/iResolution.xy;
+    
+    vec2 point = uvToPoint(pointToUV(0.5,0.5));
+    
+    fragColor = createPoint(uv, iResolution.xy, point, 0.05);
+}

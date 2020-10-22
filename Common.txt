@@ -1,0 +1,44 @@
+
+vec2 pointToUV(in vec2 pos)
+{
+    return (pos + 50.0) * 0.01;
+}
+
+vec2 uvToPoint(in vec2 pos)
+{
+    return (pos * 100.0) - 50.0;
+}
+
+vec2 pointToUV(in float x, in float y)
+{
+    return pointToUV(vec2(x,y));
+}
+
+vec2 uvToPoint(in float x, in float y)
+{
+    return uvToPoint(vec2(x,y));
+}
+
+
+
+vec4 createPoint(in vec2 uv, in vec2 resolution, in vec2 pos, in float size)
+{
+    float ratio = resolution.x/resolution.y;
+    
+    float d = distance(
+        vec2(
+            	ratio * uv.x,
+            	uv.y
+            ),
+        vec2(
+            	ratio * pos.x,
+            	pos.y
+        	)
+    );
+    float a = float(d < size);
+    
+    
+    return vec4(a,a,a,1.0);
+    
+}
+
