@@ -9,32 +9,43 @@ struct sLineSegment
     vec2 start;
     vec2 end;
 };
+    
+struct sPlane
+{
+    vec3 point;
+    vec3 normal;
+};
+
+
+    
 
 //Sets the ray direction to a normalized vector
 //Direction has a range of -1.0 to 1.0 in each axis
-void initRayRads(out sRay ray, in float rad)
+sRay initRayRads(in sRay ray, in float rad)
 {
     ray.origin = vec2(0,0);
     ray.direction = vec2(cos(rad),sin(rad));
+    return ray;
 }
 
-void initRayUV(out sRay ray, in vec2 uv)
+sRay initRayUV(in sRay ray, in vec2 uv)
 {
     float twoPi = 6.28318;
     float rad = twoPi * uv.x;
-    initRayRads(ray, rad);
+    return initRayRads(ray, rad);
 }
 
 //Multiply result by whatever color to display
 //Displays the distance from 0 to 1
 vec4 setDistance(in vec2 uv, in float distance)
 {
-    float visible = float(abs(0.5 - uv.y) < (1.0 - (distance))/2.0);
-    return vec4(visible,visible,visible,1.0);
+    float visible = float(abs(0.5 - uv.y) < (distance)/2.0);
+    return distance * vec4(visible,visible,visible,1.0);
 }
 
-float intersection(in sRay ray; in sLineSegment line)
+float intersection(in sRay ray, in sLineSegment line)
 {
+    //Change to math using planes
     //https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
     float x1 = line.start.x;
     float x2 = line.end.x;
@@ -46,15 +57,20 @@ float intersection(in sRay ray; in sLineSegment line)
     float y3 = ray.origin.y;
     float y4 = ray.origin.y + ray.direction.y;
     
-    float denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    float denRecip = 1.0 / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));
     
-    float t =        ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denominator;
-    float u = -1.0 * ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denominator;
+    float t =        ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) * denRecip;
+    float u = -1.0 * ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) * denRecip;
     
-    float tgtr0 = float();
+    bool tintersect = t > 0.0 && t < 1.0;
+    bool uintersect = u > 0.0;
+
+    vec2 intersectPoint = vec2(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
     
     
-    
+    float dist = (tintersect && uintersect) ? distance(ray.origin, intersectPoint) : 10.0;
+    return dist;
+    //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane
     
         
 }
@@ -67,18 +83,19 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     
     sRay ray;
-    initRayUV(ray, uv);
+    ray = initRayUV(ray, uv);
     
     sLineSegment line;
-    line.start = vec2(0.5,2.5);
-    line.end = vec2(1.0,1.0);
+    line.start = vec2(1.0,1.0);
+    line.end = vec2(1.0,4.0);
     
     
     
+    float maxDist = 8.0;
+    
+    float intersec = (-1.0/maxDist)*intersection(ray,line) + 1.0;
     
     
-    
-    
-    fragColor = setDistance(uv, uv.x);
+    fragColor = setDistance(uv,intersec);//vec4(intersec,intersec,intersec,1.0);
 }
 
