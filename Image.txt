@@ -1,7 +1,13 @@
+vec4 setDistance(in vec2 uv, in float distance)
+{
+    float visible = float(abs(0.5 - uv.y) < (1.0 - (distance))/2.0);
+    return vec4(visible,visible,visible,1.0);
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    vec2 uv = fragCoord/iChannelResolution[0].xy;
-    
-    fragColor = texture(iChannel0,uv);
-    
+    vec2 mouseUV = iMouse.xy / iResolution.xy;
+    vec2 uv = fragCoord.xy/iResolution.xy;
+    fragColor = setDistance(uv, mouseUV.x);
 }
+
