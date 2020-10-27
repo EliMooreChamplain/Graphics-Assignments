@@ -1,13 +1,84 @@
+struct sRay
+{
+    vec2 origin;
+    vec2 direction;
+};
+
+struct sLineSegment
+{
+    vec2 start;
+    vec2 end;
+};
+
+//Sets the ray direction to a normalized vector
+//Direction has a range of -1.0 to 1.0 in each axis
+void initRayRads(out sRay ray, in float rad)
+{
+    ray.origin = vec2(0,0);
+    ray.direction = vec2(cos(rad),sin(rad));
+}
+
+void initRayUV(out sRay ray, in vec2 uv)
+{
+    float twoPi = 6.28318;
+    float rad = twoPi * uv.x;
+    initRayRads(ray, rad);
+}
+
+//Multiply result by whatever color to display
+//Displays the distance from 0 to 1
 vec4 setDistance(in vec2 uv, in float distance)
 {
     float visible = float(abs(0.5 - uv.y) < (1.0 - (distance))/2.0);
     return vec4(visible,visible,visible,1.0);
 }
 
+float intersection(in sRay ray; in sLineSegment line)
+{
+    //https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
+    float x1 = line.start.x;
+    float x2 = line.end.x;
+    float y1 = line.start.y;
+    float y2 = line.end.y;
+    
+    float x3 = ray.origin.x;
+    float x4 = ray.origin.x + ray.direction.x;
+    float y3 = ray.origin.y;
+    float y4 = ray.origin.y + ray.direction.y;
+    
+    float denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    
+    float t =        ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denominator;
+    float u = -1.0 * ((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denominator;
+    
+    float tgtr0 = float();
+    
+    
+    
+    
+        
+}
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
-    fragColor = setDistance(uv, mouseUV.x);
+    
+    
+    
+    sRay ray;
+    initRayUV(ray, uv);
+    
+    sLineSegment line;
+    line.start = vec2(0.5,2.5);
+    line.end = vec2(1.0,1.0);
+    
+    
+    
+    
+    
+    
+    
+    fragColor = setDistance(uv, uv.x);
 }
 
