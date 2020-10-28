@@ -18,7 +18,7 @@ struct sPlane
 
 struct sView
 {
-    sRay cameraDirection;
+    sRay playerDirection;
     float cameraAngle;
     float pov;
     float t;
@@ -110,7 +110,7 @@ float intersection(in sRay ray, out sView view, in sLineSegment line)
     
     float dist = (tintersect && uintersect) ? distance(ray.origin, intersectPoint) : 10.0;
     
-    dist *= dot(view.cameraDirection.direction,ray.direction);
+    dist *= dot(view.playerDirection.direction,ray.direction);
     
     return dist;
     //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane
@@ -137,81 +137,36 @@ bool addWall(out sView view, in sRay ray, in sLineSegment line)
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+    const float pi = 3.14159265358;
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
     
     sView view = initView(6.0);
     
-    view.cameraAngle = (mouseUV.x) * 6.283185;
-    view.cameraDirection = initRayRads(vec2(iTime/10.0),view.cameraAngle);
+    view.cameraAngle = (mouseUV.x) * 2.0 * pi;
+    view.playerDirection = initRayRads(vec2(iTime/10.0),view.cameraAngle);
     view.pov = radians(90.0);
     
-    sRay ray = initRayRads(view.cameraDirection.origin, view.pov * (0.5 - uv.x) + view.cameraAngle);
+    //sRay ray = initRayRads(view.playerDirection.origin, view.pov * (0.5 - uv.x) + view.cameraAngle);
+    
+    //https://lodev.org/cgtutor/raycasting.html
+    
+    sRay cameraPlane;
+    
+    float camDist = 5.0;
+    
+    //Using trig; refer to website
+    float planeLength = (2 * camDist)/tan((pi - pov)/2.0);
+    
+    cameraPlane.origin = playerDirection.origin + (playerDirection * camDist);
+    cameraPlane.direction = playerDirection;
     
     
     
     
     
     
-    //sLineSegment line1 = initLine(vec2(1.0,1.0), vec2(1.0,4.0));
-    //sLineSegment line2 = initLine(vec2(-2.0,-4.0), vec2(-2.5,-2.5));
     
-    sLineSegment line0 = initLine(vec2(1.5,5), vec2(-2,1.5));
-sLineSegment line1 = initLine(vec2(1.5,-1.5), vec2(1.5,1));
-sLineSegment line2 = initLine(vec2(5.5,-6.5), vec2(3.5,3));
-sLineSegment line3 = initLine(vec2(2,6.5), vec2(-7.5,7.5));
-sLineSegment line4 = initLine(vec2(-4,-3), vec2(6,1.5));
-sLineSegment line5 = initLine(vec2(-3,-1.5), vec2(-3,0));
-sLineSegment line6 = initLine(vec2(-3.5,5), vec2(-7.5,0));
-sLineSegment line7 = initLine(vec2(0.5,-6.5), vec2(-5.5,2));
-sLineSegment line8 = initLine(vec2(6.5,0.5), vec2(3.5,0.5));
-sLineSegment line9 = initLine(vec2(7,-2.5), vec2(-6.5,4.5));
-    
-    view.wallColor = vec4(0.0,0.0,0.0,0.0);
-    
-    if(addWall(view, ray, line0))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line1))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line2))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line3))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line4))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line5))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line6))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line7))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line8))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line9))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    //addWall(view, ray, line3);
-    //addWall(view, ray, line4);
-    //addWall(view, ray, line2);
     
     
     fragColor = setDistance(uv,view.closestWall) * view.wallColor;//vec4(intersec,intersec,intersec,1.0);
