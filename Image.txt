@@ -16,34 +16,70 @@ struct sPlane
     vec3 normal;
 };
 
+struct sView
+{
+    sRay cameraDirection;
+    float cameraAngle;
+    float pov;
+    float maxDist;
+    float closestWall;
+};
 
-    
+sView initView(float maxDist)
+{
+    sView view;
+    view.maxDist = maxDist;
+    view.closestWall = 0.0;
+    return view;
+}
+
+sLineSegment initLine(vec2 start, vec2 end)
+{
+    sLineSegment line;
+    line.start = start;
+    line.end = end;
+    return line;
+}
+
+float toRad(in vec2 direction)
+{
+    return atan(direction.x/direction.y);
+}
+
+float angleToUV(in float rad)
+{
+    return degrees(rad)/360.0;
+}
+
+
 
 //Sets the ray direction to a normalized vector
 //Direction has a range of -1.0 to 1.0 in each axis
-sRay initRayRads(in sRay ray, in float rad)
+sRay initRayRads(in vec2 origin, in float rad)
 {
-    ray.origin = vec2(0,0);
+    sRay ray;
+    ray.origin = origin;
     ray.direction = vec2(cos(rad),sin(rad));
     return ray;
 }
 
-sRay initRayUV(in sRay ray, in vec2 uv)
+sRay initRayUV(in vec2 origin, in vec2 uv)
 {
+    sRay ray;
     float twoPi = 6.28318;
     float rad = twoPi * uv.x;
-    return initRayRads(ray, rad);
+    return initRayRads(origin, rad);
 }
 
 //Multiply result by whatever color to display
-//Displays the distance from 0 to 1
+//Displays the distance from 0(closest) to 1(furthest)
 vec4 setDistance(in vec2 uv, in float distance)
 {
     float visible = float(abs(0.5 - uv.y) < (distance)/2.0);
-    return distance * vec4(visible,visible,visible,1.0);
+    return (distance * distance * distance) * vec4(visible,visible,visible,1.0);
 }
 
-float intersection(in sRay ray, in sLineSegment line)
+float intersection(in sRay ray, in sView view, in sLineSegment line)
 {
     //Change to math using planes
     //https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
@@ -69,10 +105,21 @@ float intersection(in sRay ray, in sLineSegment line)
     
     
     float dist = (tintersect && uintersect) ? distance(ray.origin, intersectPoint) : 10.0;
+    
+    dist *= dot(view.cameraDirection.direction,ray.direction);
+    
     return dist;
     //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane
     
         
+}
+
+
+
+void addWall(out sView view, in sRay ray, in sLineSegment line)
+{
+    float intersec = (-1.0/view.maxDist)*intersection(ray,view,line) + 1.0;
+    view.closestWall = (intersec > view.closestWall) ? intersec : view.closestWall;
 }
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
@@ -82,20 +129,37 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     
     
-    sRay ray;
-    ray = initRayUV(ray, uv);
-    
-    sLineSegment line;
-    line.start = vec2(1.0,1.0);
-    line.end = vec2(1.0,4.0);
+    sView view = initView(8.0);
+    //view.cameraAngle = mouseUV.x * 360.0;
+    //view.pov = 90.0;
+    //view.cameraDirection = initRayRads(vec2(0.0),view.cameraAngle);
     
     
+    //view.pov = view.pov / 360.0;
+    //float cameraAngleUV = view.cameraAngle/360.0/view.pov - 2.0 * view.pov;
+    //sRay ray = initRayUV(view.cameraDirection.origin, (1.0 - uv + cameraAngleUV)*view.pov);
     
-    float maxDist = 8.0;
+    view.cameraAngle = (mouseUV.x) * 6.283185;
+    view.cameraDirection = initRayRads(vec2(0.0),view.cameraAngle);
+    view.pov = radians(45.0);
     
-    float intersec = (-1.0/maxDist)*intersection(ray,line) + 1.0;
+    sRay ray = initRayRads(view.cameraDirection.origin, view.pov * (0.5 - uv.x) + view.cameraAngle);
     
     
-    fragColor = setDistance(uv,intersec);//vec4(intersec,intersec,intersec,1.0);
+    
+    
+    
+    
+    sLineSegment line1 = initLine(vec2(1.0,1.0), vec2(1.0,4.0));
+    sLineSegment line2 = initLine(vec2(-2.0,-4.0), vec2(-2.5,-2.5));
+    
+    addWall(view, ray, line1);
+    addWall(view, ray, line2);
+    //addWall(view, ray, line3);
+    //addWall(view, ray, line4);
+    //addWall(view, ray, line2);
+    
+    
+    fragColor = setDistance(uv,view.closestWall);//vec4(intersec,intersec,intersec,1.0);
 }
 
