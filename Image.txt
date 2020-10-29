@@ -1,3 +1,5 @@
+const float pi = 3.14159265358;
+
 struct sRay
 {
     vec2 origin;
@@ -18,13 +20,21 @@ struct sPlane
 
 struct sView
 {
-    sRay playerDirection;
+    sRay playerRay;
     float cameraAngle;
-    float pov;
+    float fov;
     float t;
     float maxDist;
     float closestWall;
     vec4 wallColor;
+    
+    sRay cameraPlane;
+    sRay castRay;
+    float camDist;
+    vec2 uv;
+    float planeLength;
+    bool hitWall;
+    
 };
 
 sView initView(float maxDist)
@@ -32,6 +42,7 @@ sView initView(float maxDist)
     sView view;
     view.maxDist = maxDist;
     view.closestWall = 0.0;
+    view.hitWall = false;
     return view;
 }
 
@@ -54,6 +65,13 @@ float angleToUV(in float rad)
 }
 
 
+sRay initRay(in vec2 origin, in vec2 direction)
+{
+    sRay ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    return ray;
+}
 
 //Sets the ray direction to a normalized vector
 //Direction has a range of -1.0 to 1.0 in each axis
@@ -73,28 +91,59 @@ sRay initRayUV(in vec2 origin, in vec2 uv)
     return initRayRads(origin, rad);
 }
 
+
+
 //Multiply result by whatever color to display
 //Displays the distance from 0(closest) to 1(furthest)
-vec4 setDistance(in vec2 uv, in float distance)
+vec4 setDistance(in vec2 uv, in float dist)
 {
-    float visible = float(abs(0.5 - uv.y) < (distance)/2.0);
+    float visible = float(abs(0.5 - uv.y) < (dist)/2.0);
     
-    return (distance) * vec4(visible,visible,visible,1.0);
+    return vec4(visible,visible,visible,1.0);
 }
 
-float intersection(in sRay ray, out sView view, in sLineSegment line)
+vec2 rotateVector(in vec2 v, in float ang)
+{
+    vec2 newVec;
+    newVec.x = v.x * cos(ang) - v.y * sin(ang);
+    newVec.y = v.x * sin(ang) + v.y * cos(ang);
+    return newVec;
+}
+
+//Returns the t and s values, which are the UVs of the hit's point
+vec2 calcDistance(sRay r1, sRay r2)
+{
+    float t = 
+        ( r2.direction.x * (r1.origin.y - r2.origin.y) - r2.direction.y * (r1.origin.x - r2.origin.x) )/
+        ( (r2.direction.y * r1.direction.x) - (r2.direction.x*r1.direction.y) )
+        ;
+        
+    float s = 
+        ( r1.direction.x * (r2.origin.y - r1.origin.y) - r1.direction.y * (r2.origin.x - r1.origin.x) )/
+        ( (r1.direction.y * r2.direction.x) - (r1.direction.x*r2.direction.y) )
+        ;
+    return vec2(t,s);
+}
+
+float angleOf(vec2 direction)
+{
+    return atan(direction.x/direction.y);
+    
+}
+
+float intersection(out sView v, in sLineSegment lineSeg)
 {
     //Change to math using planes
     //https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
-    float x1 = line.start.x;
-    float x2 = line.end.x;
-    float y1 = line.start.y;
-    float y2 = line.end.y;
+    float x1 = lineSeg.start.x;
+    float x2 = lineSeg.end.x;
+    float y1 = lineSeg.start.y;
+    float y2 = lineSeg.end.y;
     
-    float x3 = ray.origin.x;
-    float x4 = ray.origin.x + ray.direction.x;
-    float y3 = ray.origin.y;
-    float y4 = ray.origin.y + ray.direction.y;
+    float x3 = v.castRay.origin.x;
+    float x4 = v.castRay.origin.x + v.castRay.direction.x;
+    float y3 = v.castRay.origin.y;
+    float y4 = v.castRay.origin.y + v.castRay.direction.y;
     
     float denRecip = 1.0 / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));
     
@@ -104,28 +153,77 @@ float intersection(in sRay ray, out sView view, in sLineSegment line)
     bool tintersect = t > 0.0 && t < 1.0;
     bool uintersect = u > 0.0;
     
-    view.t = t;
-    
-    vec2 intersectPoint = vec2(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
-    
-    float dist = (tintersect && uintersect) ? distance(ray.origin, intersectPoint) : 10.0;
-    
-    dist *= dot(view.playerDirection.direction,ray.direction);
-    
-    return dist;
+    v.t = t;
+    //
+    //if(tintersect && uintersect)
+    //{
+    //    v.hitWall = true;
+    //}
+    //
+    //vec2 intersectPoint = vec2(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
+    //
+    //float dist = distance(v.castRay.origin, intersectPoint);
+    //
+    //dist *= dot(v.playerRay.direction,v.castRay.direction);
+    //
+    //return dist;
     //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane
+    
+    
+    
+    
+    
+    //castRay intersects with lineRay if 
+    
+    sRay lineRay;
+    lineRay.origin = lineSeg.start;
+    lineRay.direction = lineSeg.end - lineSeg.start;
+    
+    vec2 ts = calcDistance(v.castRay, lineRay);
+    //float t = ts.x;
+    //float s = ts.y;
+    
+    if(u > 0.0 && (t > 0.0 && t < 1.0))
+    {
+        
+        vec2 hitPoint = lineRay.origin + t * lineRay.direction;
+        sRay perpWallToPlane = initRay(hitPoint, -1.0 * v.playerRay.direction);//Start at the hit point and go directly toward the camera plane
+        float ang = -angleOf(perpWallToPlane.direction) + angleOf(v.castRay.direction);
+        float dist = distance(v.playerRay.origin, hitPoint) * cos(ang);
+        v.hitWall = true;
+        //dist *= dot(v.cameraPlane.direction,v.castRay.direction);
+        return dist;
+        
+        
+    }
+    else
+    {
+        
+        
+        return 0.0;
+        //not on screen
+    }
+    
+    //If determinant is 0, then they don't intersect
+    
+    
+    
+    
+    
+    
+    
     
         
 }
 
 
 
-bool addWall(out sView view, in sRay ray, in sLineSegment line)
+bool addWall(out sView v, in sLineSegment line)
 {
-    float intersec = (-1.0/view.maxDist)*intersection(ray,view,line) + 1.0;
-    if(intersec > view.closestWall)
+    float intersec = (-1.0/v.maxDist)*intersection(v,line) + 1.0;
+    if(intersec > v.closestWall)
     {
-        view.closestWall = intersec;
+        v.closestWall = intersec;
         return true;
     }
     else
@@ -135,40 +233,62 @@ bool addWall(out sView view, in sRay ray, in sLineSegment line)
     
 }
 
+
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-    const float pi = 3.14159265358;
+    
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
     
-    sView view = initView(6.0);
+    sView v = initView(8.0);
     
-    view.cameraAngle = (mouseUV.x) * 2.0 * pi;
-    view.playerDirection = initRayRads(vec2(iTime/10.0),view.cameraAngle);
-    view.pov = radians(90.0);
+    v.uv = uv;
+    //v.uv.x = 1.0 - v.uv.x;
+    v.cameraAngle = (mouseUV.x) * 4.0 * pi;
+    v.playerRay = initRayRads(vec2(iTime/-10.0, 0.0),v.cameraAngle);
+    v.fov = radians(90.0);
+    v.camDist = 5.0;
     
-    //sRay ray = initRayRads(view.playerDirection.origin, view.pov * (0.5 - uv.x) + view.cameraAngle);
+    //v.castRay = initRayRads(v.playerRay.origin, v.fov * (0.5 - uv.x) + v.cameraAngle);
     
     //https://lodev.org/cgtutor/raycasting.html
     
-    sRay cameraPlane;
-    
-    float camDist = 5.0;
-    
     //Using trig; refer to website
-    float planeLength = (2 * camDist)/tan((pi - pov)/2.0);
+    v.planeLength = (v.camDist)/tan((pi - v.fov)* 0.5);
     
-    cameraPlane.origin = playerDirection.origin + (playerDirection * camDist);
-    cameraPlane.direction = playerDirection;
-    
-    
-    
-    
+    //Plane left bound
+    v.cameraPlane.origin = v.playerRay.origin + (v.playerRay.direction * v.camDist);
+    //Plane length
+    v.cameraPlane.direction = rotateVector(v.playerRay.direction, pi * -0.5) * v.planeLength;//Player direction rotated 90 degrees counter-clockwise, multiplied by the plane length
     
     
+    //Cast the ray toward the camera angle depending on the UV and fov
+    v.castRay = initRayRads(
+        v.playerRay.origin,// + v.cameraPlane.direction*(uv.x - 0.5),
+        (
+        	v.fov * (0.5 - v.uv.x) + v.cameraAngle//fov needs to be ranged from 0 to 1
+        )
+    );
+    
+    sLineSegment line0 = initLine(vec2(1.0,1.0), vec2(1.0,4.0));
+    sLineSegment line1 = initLine(vec2(-2.0,-4.0), vec2(-2.5,-2.5));
+    
+    
+    v.wallColor = vec4(0.0,0.0,1.0,1.0);
+    
+    float lineHeight = 1.0 / intersection(v, line0);
+    
+    //float intersec = (-1.0/v.maxDist)*intersection(v,line0) + 1.0;
+    float intersec = 1.0 * lineHeight;
+    
+    v.closestWall = intersec;
     
     
     
-    fragColor = setDistance(uv,view.closestWall) * view.wallColor;//vec4(intersec,intersec,intersec,1.0);
+    
+    
+    
+    
+    fragColor = setDistance(uv,v.closestWall) * v.wallColor * float(v.hitWall);//vec4(intersec,intersec,intersec,1.0);
 }
 
