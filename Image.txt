@@ -1,3 +1,6 @@
+
+const float pi = 3.14159265;
+
 struct sRay
 {
     vec2 origin;
@@ -8,6 +11,8 @@ struct sLineSegment
 {
     vec2 start;
     vec2 end;
+    int channel;
+    bool hit;
 };
     
 struct sPlane
@@ -18,29 +23,44 @@ struct sPlane
 
 struct sView
 {
-    sRay cameraDirection;
+    sRay PlayerRay;
     float cameraAngle;
-    float pov;
+    float fov;
     float t;
-    float maxDist;
+    float wallHeight;
     float closestWall;
     vec4 wallColor;
+    vec2 uv;
+    float perspLen;
+    sLineSegment closestLine;
+    
+    vec4 skyColor;
+    vec4 groundColor;
+    
 };
 
-sView initView(float maxDist)
+sView initView(float wallHeight)
 {
     sView view;
-    view.maxDist = maxDist;
+    view.wallHeight = wallHeight;
     view.closestWall = 0.0;
     return view;
 }
 
-sLineSegment initLine(vec2 start, vec2 end)
+
+
+sLineSegment initLine(vec2 start, vec2 end, int channel)
 {
     sLineSegment line;
     line.start = start;
     line.end = end;
+    line.channel = channel;
     return line;
+}
+
+sLineSegment initLine(vec2 start, vec2 end)
+{
+    return initLine(start, end, 0);
 }
 
 float toRad(in vec2 direction)
@@ -50,7 +70,7 @@ float toRad(in vec2 direction)
 
 float angleToUV(in float rad)
 {
-    return degrees(rad)/360.0;
+    return rad/(2.0 * 3.141592);
 }
 
 
@@ -75,14 +95,35 @@ sRay initRayUV(in vec2 origin, in vec2 uv)
 
 //Multiply result by whatever color to display
 //Displays the distance from 0(closest) to 1(furthest)
-vec4 setDistance(in vec2 uv, in float distance)
+vec4 setDistance(in vec2 uv, in sView v)
 {
-    float visible = float(abs(0.5 - uv.y) < (distance)/2.0);
+    bool visible = abs(2.0 * uv.y - 1.0) < v.closestWall;//abs(0.5 - uv.y) < (dist)/2.0);
     
-    return (distance) * vec4(visible,visible,visible,1.0);
+    vec4 backgroundColor = (uv.y > 0.5) ? v.skyColor : v.groundColor;
+    
+    return visible ? v.wallColor : backgroundColor;
 }
 
-float intersection(in sRay ray, out sView view, in sLineSegment line)
+vec2 angToVec(float rad)
+{
+    return vec2
+        (
+            cos(rad),
+            sin(rad)
+        );
+}
+
+float angleOf(vec2 direction)
+{
+    float angle = atan(direction.x/direction.y);
+    if(direction.y < 0.0)
+    {
+        angle += pi;
+    }
+    return angle;
+}
+
+float intersection(in sRay ray, out sView view, out sLineSegment line)
 {
     //Change to math using planes
     //https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
@@ -104,26 +145,57 @@ float intersection(in sRay ray, out sView view, in sLineSegment line)
     bool tintersect = t > 0.0 && t < 1.0;
     bool uintersect = u > 0.0;
     
+    
+    
     view.t = t;
     
     vec2 intersectPoint = vec2(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
+    float dist = distance(ray.origin, intersectPoint);
+    float a = -angleOf(ray.direction) + angleOf(view.PlayerRay.direction);
+    dist *= cos(a);
+    dist -= view.perspLen;
     
-    float dist = (tintersect && uintersect) ? distance(ray.origin, intersectPoint) : 10.0;
-    
-    dist *= dot(view.cameraDirection.direction,ray.direction);
+    if((tintersect && uintersect))
+    {
+        line.hit = true;
+    }
     
     return dist;
-    //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane
     
-        
+    
+    //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_plane   
+}
+
+vec4 setChannel(in sView v, in int channel)
+{
+    if(channel == 0)
+    {
+        return texture(iChannel0, vec2(v.t,(0.5 - v.uv.y)/v.closestWall));
+    }
+    else if(channel == 1)
+    {
+        return texture(iChannel1, vec2(v.t,(0.5 - v.uv.y)/v.closestWall));
+    }
+    else if(channel == 2)
+    {
+        return texture(iChannel2, vec2(v.t,(0.5 - v.uv.y)/v.closestWall));
+    }
+    else if(channel == 3)
+    {
+        return texture(iChannel3, vec2(v.t,(0.5 - v.uv.y)/v.closestWall));
+    }
+    else
+    {
+        return texture(iChannel0, vec2(v.t,(0.5 - v.uv.y)/v.closestWall));
+    }
 }
 
 
 
 bool addWall(out sView view, in sRay ray, in sLineSegment line)
 {
-    float intersec = (-1.0/view.maxDist)*intersection(ray,view,line) + 1.0;
-    if(intersec > view.closestWall)
+    float intersec = view.wallHeight/(intersection(ray,view,line) + 1.0);
+    if(intersec > view.closestWall && line.hit)
     {
         view.closestWall = intersec;
         return true;
@@ -140,80 +212,618 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
     
-    sView view = initView(6.0);
+    sView v = initView(1.0);
     
-    view.cameraAngle = (mouseUV.x) * 6.283185;
-    view.cameraDirection = initRayRads(vec2(iTime/10.0),view.cameraAngle);
-    view.pov = radians(90.0);
+    float speed = 0.025;
     
-    sRay ray = initRayRads(view.cameraDirection.origin, view.pov * (0.5 - uv.x) + view.cameraAngle);
+    float moveDistance = 3.0;
+    
+    v.cameraAngle = (mouseUV.x + 0.0) * 2.0 * pi;
+    v.PlayerRay = initRayRads(vec2(cos(iTime * speed * 2.0 * pi) * moveDistance, sin(iTime * speed * 6.0 * pi) * moveDistance),v.cameraAngle);
+    v.fov = radians(90.0);
+    v.perspLen = 1.0;
     
     
+    v.groundColor = mix(vec4(0.5, 0.3, 0.1,1.0), vec4(0.0,0.0,0.0,0.0),uv.y);
+    v.skyColor = mix(vec4(0.7, 0.9, 0.9, 1.0), vec4(0.9, 0.4, 0.1, 1.0), 1.0 - uv.y);
+    
+    sRay ray = initRayRads(v.PlayerRay.origin, (0.5 * v.fov) * (0.5 - uv.x) + v.cameraAngle);
     
     
+    const int lineNumber = 5;
     
+    //sLineSegment lines[lineNumber] = sLineSegment[lineNumber]
+    //    (
+    //     initLine(vec2(-1,-0.75), vec2(-0.75,-0.75)), 
+    //     initLine(vec2(-1,-0.75), vec2(-0.75,-0.75)), 
+    //     initLine(vec2(-1,-0.75), vec2(-0.75,-0.75)), 
+    //     initLine(vec2(-1,-0.75), vec2(-0.75,-0.75)), 
+    //     initLine(vec2(-1,-0.75), vec2(-0.75,-0.75))
+    //    );
+    //
     
     //sLineSegment line1 = initLine(vec2(1.0,1.0), vec2(1.0,4.0));
     //sLineSegment line2 = initLine(vec2(-2.0,-4.0), vec2(-2.5,-2.5));
     
-    sLineSegment line0 = initLine(vec2(1.5,5), vec2(-2,1.5));
-sLineSegment line1 = initLine(vec2(1.5,-1.5), vec2(1.5,1));
-sLineSegment line2 = initLine(vec2(5.5,-6.5), vec2(3.5,3));
-sLineSegment line3 = initLine(vec2(2,6.5), vec2(-7.5,7.5));
-sLineSegment line4 = initLine(vec2(-4,-3), vec2(6,1.5));
-sLineSegment line5 = initLine(vec2(-3,-1.5), vec2(-3,0));
-sLineSegment line6 = initLine(vec2(-3.5,5), vec2(-7.5,0));
-sLineSegment line7 = initLine(vec2(0.5,-6.5), vec2(-5.5,2));
-sLineSegment line8 = initLine(vec2(6.5,0.5), vec2(3.5,0.5));
-sLineSegment line9 = initLine(vec2(7,-2.5), vec2(-6.5,4.5));
+    sLineSegment line0 = initLine(vec2(-4,-3), vec2(-3,-3));
+sLineSegment line1 = initLine(vec2(-3,-3), vec2(-3,-4));
+sLineSegment line2 = initLine(vec2(-3,-4), vec2(-4,-4));
+sLineSegment line3 = initLine(vec2(-4,-4), vec2(-4,-3));
+sLineSegment line4 = initLine(vec2(-3,-3), vec2(-2,-3));
+sLineSegment line5 = initLine(vec2(-2,-3), vec2(-2,-4));
+sLineSegment line6 = initLine(vec2(-2,-4), vec2(-3,-4));
+sLineSegment line7 = initLine(vec2(-3,-4), vec2(-3,-3));
+sLineSegment line8 = initLine(vec2(-2,-3), vec2(-1,-3));
+sLineSegment line9 = initLine(vec2(-1,-3), vec2(-1,-4));
+sLineSegment line10 = initLine(vec2(-1,-4), vec2(-2,-4));
+sLineSegment line11 = initLine(vec2(-2,-4), vec2(-2,-3));
+sLineSegment line12 = initLine(vec2(-1,-3), vec2(0,-3));
+sLineSegment line13 = initLine(vec2(0,-3), vec2(0,-4));
+sLineSegment line14 = initLine(vec2(0,-4), vec2(-1,-4));
+sLineSegment line15 = initLine(vec2(-1,-4), vec2(-1,-3));
+sLineSegment line16 = initLine(vec2(0,-3), vec2(1,-3));
+sLineSegment line17 = initLine(vec2(1,-3), vec2(1,-4));
+sLineSegment line18 = initLine(vec2(1,-4), vec2(0,-4));
+sLineSegment line19 = initLine(vec2(0,-4), vec2(0,-3));
+sLineSegment line20 = initLine(vec2(1,-3), vec2(2,-3));
+sLineSegment line21 = initLine(vec2(2,-3), vec2(2,-4));
+sLineSegment line22 = initLine(vec2(2,-4), vec2(1,-4));
+sLineSegment line23 = initLine(vec2(1,-4), vec2(1,-3));
+sLineSegment line24 = initLine(vec2(2,-3), vec2(3,-3));
+sLineSegment line25 = initLine(vec2(3,-3), vec2(3,-4));
+sLineSegment line26 = initLine(vec2(3,-4), vec2(2,-4));
+sLineSegment line27 = initLine(vec2(2,-4), vec2(2,-3));
+sLineSegment line28 = initLine(vec2(3,-3), vec2(4,-3));
+sLineSegment line29 = initLine(vec2(4,-3), vec2(4,-4));
+sLineSegment line30 = initLine(vec2(4,-4), vec2(3,-4));
+sLineSegment line31 = initLine(vec2(3,-4), vec2(3,-3));
+
+
+sLineSegment line32 = initLine(vec2(-4,-2), vec2(-3,-2));
+sLineSegment line33 = initLine(vec2(-3,-2), vec2(-3,-3));
+sLineSegment line34 = initLine(vec2(-3,-3), vec2(-4,-3));
+sLineSegment line35 = initLine(vec2(-4,-3), vec2(-4,-2));
+sLineSegment line36 = initLine(vec2(3,-2), vec2(4,-2));
+sLineSegment line37 = initLine(vec2(4,-2), vec2(4,-3));
+sLineSegment line38 = initLine(vec2(4,-3), vec2(3,-3));
+sLineSegment line39 = initLine(vec2(3,-3), vec2(3,-2));
+
+
+sLineSegment line40 = initLine(vec2(-4,-1), vec2(-3,-1));
+sLineSegment line41 = initLine(vec2(-3,-1), vec2(-3,-2));
+sLineSegment line42 = initLine(vec2(-3,-2), vec2(-4,-2));
+sLineSegment line43 = initLine(vec2(-4,-2), vec2(-4,-1));
+sLineSegment line44 = initLine(vec2(-3,-1), vec2(-2,-1));
+sLineSegment line45 = initLine(vec2(-2,-1), vec2(-2,-2));
+sLineSegment line46 = initLine(vec2(-2,-2), vec2(-3,-2));
+sLineSegment line47 = initLine(vec2(-3,-2), vec2(-3,-1));
+sLineSegment line48 = initLine(vec2(-2,-1), vec2(-1,-1));
+sLineSegment line49 = initLine(vec2(-1,-1), vec2(-1,-2));
+sLineSegment line50 = initLine(vec2(-1,-2), vec2(-2,-2));
+sLineSegment line51 = initLine(vec2(-2,-2), vec2(-2,-1));
+sLineSegment line52 = initLine(vec2(-1,-1), vec2(0,-1));
+sLineSegment line53 = initLine(vec2(0,-1), vec2(0,-2));
+sLineSegment line54 = initLine(vec2(0,-2), vec2(-1,-2));
+sLineSegment line55 = initLine(vec2(-1,-2), vec2(-1,-1));
+sLineSegment line56 = initLine(vec2(3,-1), vec2(4,-1));
+sLineSegment line57 = initLine(vec2(4,-1), vec2(4,-2));
+sLineSegment line58 = initLine(vec2(4,-2), vec2(3,-2));
+sLineSegment line59 = initLine(vec2(3,-2), vec2(3,-1));
+
+
+sLineSegment line60 = initLine(vec2(-4,0), vec2(-3,0));
+sLineSegment line61 = initLine(vec2(-3,0), vec2(-3,-1));
+sLineSegment line62 = initLine(vec2(-3,-1), vec2(-4,-1));
+sLineSegment line63 = initLine(vec2(-4,-1), vec2(-4,0));
+sLineSegment line64 = initLine(vec2(3,0), vec2(4,0));
+sLineSegment line65 = initLine(vec2(4,0), vec2(4,-1));
+sLineSegment line66 = initLine(vec2(4,-1), vec2(3,-1));
+sLineSegment line67 = initLine(vec2(3,-1), vec2(3,0));
+
+
+sLineSegment line68 = initLine(vec2(-4,1), vec2(-3,1));
+sLineSegment line69 = initLine(vec2(-3,1), vec2(-3,0));
+sLineSegment line70 = initLine(vec2(-3,0), vec2(-4,0));
+sLineSegment line71 = initLine(vec2(-4,0), vec2(-4,1));
+sLineSegment line72 = initLine(vec2(3,1), vec2(4,1));
+sLineSegment line73 = initLine(vec2(4,1), vec2(4,0));
+sLineSegment line74 = initLine(vec2(4,0), vec2(3,0));
+sLineSegment line75 = initLine(vec2(3,0), vec2(3,1));
+
+
+sLineSegment line76 = initLine(vec2(-4,2), vec2(-3,2));
+sLineSegment line77 = initLine(vec2(-3,2), vec2(-3,1));
+sLineSegment line78 = initLine(vec2(-3,1), vec2(-4,1));
+sLineSegment line79 = initLine(vec2(-4,1), vec2(-4,2));
+sLineSegment line80 = initLine(vec2(-2,2), vec2(-1,2));
+sLineSegment line81 = initLine(vec2(-1,2), vec2(-1,1));
+sLineSegment line82 = initLine(vec2(-1,1), vec2(-2,1));
+sLineSegment line83 = initLine(vec2(-2,1), vec2(-2,2));
+sLineSegment line84 = initLine(vec2(1,2), vec2(2,2));
+sLineSegment line85 = initLine(vec2(2,2), vec2(2,1));
+sLineSegment line86 = initLine(vec2(2,1), vec2(1,1));
+sLineSegment line87 = initLine(vec2(1,1), vec2(1,2));
+sLineSegment line88 = initLine(vec2(3,2), vec2(4,2));
+sLineSegment line89 = initLine(vec2(4,2), vec2(4,1));
+sLineSegment line90 = initLine(vec2(4,1), vec2(3,1));
+sLineSegment line91 = initLine(vec2(3,1), vec2(3,2));
+
+
+sLineSegment line92 = initLine(vec2(-4,3), vec2(-3,3));
+sLineSegment line93 = initLine(vec2(-3,3), vec2(-3,2));
+sLineSegment line94 = initLine(vec2(-3,2), vec2(-4,2));
+sLineSegment line95 = initLine(vec2(-4,2), vec2(-4,3));
+sLineSegment line96 = initLine(vec2(1,3), vec2(2,3));
+sLineSegment line97 = initLine(vec2(2,3), vec2(2,2));
+sLineSegment line98 = initLine(vec2(2,2), vec2(1,2));
+sLineSegment line99 = initLine(vec2(1,2), vec2(1,3));
+sLineSegment line100 = initLine(vec2(3,3), vec2(4,3));
+sLineSegment line101 = initLine(vec2(4,3), vec2(4,2));
+sLineSegment line102 = initLine(vec2(4,2), vec2(3,2));
+sLineSegment line103 = initLine(vec2(3,2), vec2(3,3));
+
+
+sLineSegment line104 = initLine(vec2(-4,4), vec2(-3,4));
+sLineSegment line105 = initLine(vec2(-3,4), vec2(-3,3));
+sLineSegment line106 = initLine(vec2(-3,3), vec2(-4,3));
+sLineSegment line107 = initLine(vec2(-4,3), vec2(-4,4));
+sLineSegment line108 = initLine(vec2(-3,4), vec2(-2,4));
+sLineSegment line109 = initLine(vec2(-2,4), vec2(-2,3));
+sLineSegment line110 = initLine(vec2(-2,3), vec2(-3,3));
+sLineSegment line111 = initLine(vec2(-3,3), vec2(-3,4));
+sLineSegment line112 = initLine(vec2(-2,4), vec2(-1,4));
+sLineSegment line113 = initLine(vec2(-1,4), vec2(-1,3));
+sLineSegment line114 = initLine(vec2(-1,3), vec2(-2,3));
+sLineSegment line115 = initLine(vec2(-2,3), vec2(-2,4));
+sLineSegment line116 = initLine(vec2(-1,4), vec2(0,4));
+sLineSegment line117 = initLine(vec2(0,4), vec2(0,3));
+sLineSegment line118 = initLine(vec2(0,3), vec2(-1,3));
+sLineSegment line119 = initLine(vec2(-1,3), vec2(-1,4));
+sLineSegment line120 = initLine(vec2(0,4), vec2(1,4));
+sLineSegment line121 = initLine(vec2(1,4), vec2(1,3));
+sLineSegment line122 = initLine(vec2(1,3), vec2(0,3));
+sLineSegment line123 = initLine(vec2(0,3), vec2(0,4));
+sLineSegment line124 = initLine(vec2(1,4), vec2(2,4));
+sLineSegment line125 = initLine(vec2(2,4), vec2(2,3));
+sLineSegment line126 = initLine(vec2(2,3), vec2(1,3));
+sLineSegment line127 = initLine(vec2(1,3), vec2(1,4));
+sLineSegment line128 = initLine(vec2(2,4), vec2(3,4));
+sLineSegment line129 = initLine(vec2(3,4), vec2(3,3));
+sLineSegment line130 = initLine(vec2(3,3), vec2(2,3));
+sLineSegment line131 = initLine(vec2(2,3), vec2(2,4));
+sLineSegment line132 = initLine(vec2(3,4), vec2(4,4));
+sLineSegment line133 = initLine(vec2(4,4), vec2(4,3));
+sLineSegment line134 = initLine(vec2(4,3), vec2(3,3));
+sLineSegment line135 = initLine(vec2(3,3), vec2(3,4));
+
+
+if(addWall(v, ray, line0))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line1))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line2))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line3))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line4))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line5))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line6))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line7))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line8))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line9))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line10))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line11))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line12))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line13))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line14))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line15))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line16))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line17))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line18))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line19))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line20))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line21))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line22))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line23))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line24))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line25))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line26))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line27))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line28))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line29))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line30))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line31))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line32))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line33))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line34))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line35))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line36))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line37))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line38))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line39))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line40))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line41))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line42))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line43))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line44))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line45))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line46))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line47))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line48))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line49))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line50))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line51))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line52))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line53))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line54))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line55))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line56))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line57))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line58))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line59))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line60))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line61))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line62))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line63))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line64))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line65))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line66))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line67))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line68))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line69))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line70))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line71))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line72))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line73))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line74))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line75))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line76))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line77))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line78))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line79))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line80))
+{ v.wallColor = texture(iChannel2, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line81))
+{ v.wallColor = texture(iChannel2, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line82))
+{ v.wallColor = texture(iChannel2, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line83))
+{ v.wallColor = texture(iChannel2, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line84))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line85))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line86))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line87))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line88))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line89))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line90))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line91))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line92))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line93))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line94))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line95))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line96))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line97))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line98))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line99))
+{ v.wallColor = texture(iChannel1, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line100))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line101))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line102))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line103))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+
+
+if(addWall(v, ray, line104))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line105))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line106))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line107))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line108))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line109))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line110))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line111))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line112))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line113))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line114))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line115))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line116))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line117))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line118))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line119))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line120))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line121))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line122))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line123))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line124))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line125))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line126))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line127))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line128))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line129))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line130))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line131))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line132))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line133))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line134))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+if(addWall(v, ray, line135))
+{ v.wallColor = texture(iChannel0, vec2(v.t,(0.5 - uv.y)/v.closestWall)); }
+
+    //addWall(v, ray, line3);
+    //addWall(v, ray, line4);
+    //addWall(v, ray, line2);
     
-    view.wallColor = vec4(0.0,0.0,0.0,0.0);
     
-    if(addWall(view, ray, line0))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line1))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line2))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line3))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line4))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line5))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line6))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line7))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line8))
-    {
-        view.wallColor = texture(iChannel1, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    if(addWall(view, ray, line9))
-    {
-        view.wallColor = texture(iChannel0, vec2(view.t,(0.5 - uv.y)/view.closestWall));
-    }
-    //addWall(view, ray, line3);
-    //addWall(view, ray, line4);
-    //addWall(view, ray, line2);
-    
-    
-    fragColor = setDistance(uv,view.closestWall) * view.wallColor;//vec4(intersec,intersec,intersec,1.0);
+    fragColor = setDistance(uv,v);//vec4(intersec,intersec,intersec,1.0);
 }
 
