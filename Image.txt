@@ -1,6 +1,6 @@
 const float pi = 3.14159265;
 
-const int lineNumber = 112;
+const int lineNumber = 32;
 
 struct sRay
 {
@@ -110,7 +110,7 @@ vec4 setDistance(in sView v)
     
     vec4 backgroundColor = (v.uv.y > 0.5) ? v.skyColor : v.groundColor;
     
-    return visible ? v.wallColor : backgroundColor;
+    return visible ? v.wallColor * (1.0/v.closestWall.height*v.closestWall.height) : backgroundColor;
 }
 
 vec2 angToVec(float rad)
@@ -154,8 +154,6 @@ float intersection(out sView v, out sLineSegment line)
     bool tintersect = t > 0.0 && t < 1.0;
     bool uintersect = u > 0.0;
     
-    
-    
     line.t = t;
     
     vec2 intersectPoint = vec2(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
@@ -164,10 +162,7 @@ float intersection(out sView v, out sLineSegment line)
     dist *= cos(a);
     dist -= v.perspLen;
     
-    if((tintersect && uintersect))
-    {
-        line.hit = true;
-    }
+    line.hit = tintersect && uintersect;
     
     return dist;
     
@@ -180,23 +175,23 @@ vec4 setChannel(in sView v)
     int channel = v.closestWall.channel;
     if(channel == 0)
     {
-        return texture(iChannel0, vec2(v.closestWall.t,(0.5 - v.uv.y)/v.closestWall.height));
+        return texture(iChannel0, vec2(v.closestWall.t*distance(v.closestWall.start, v.closestWall.end),(v.uv.y - 0.5)/v.closestWall.height + 0.5)) * vec4(0.796, 0.360, 0.819,1.0);
     }
     else if(channel == 1)
     {
-        return texture(iChannel1, vec2(v.closestWall.t,(0.5 - v.uv.y)/v.closestWall.height));
+        return texture(iChannel1, vec2(v.closestWall.t*distance(v.closestWall.start, v.closestWall.end),(v.uv.y - 0.5)/v.closestWall.height + 0.5))* vec4(0.211, 0.698, 0.968,1.0);
     }
     else if(channel == 2)
     {
-        return texture(iChannel2, vec2(v.closestWall.t,(0.5 - v.uv.y)/v.closestWall.height));
+        return texture(iChannel2, vec2(v.closestWall.t*distance(v.closestWall.start, v.closestWall.end),(v.uv.y - 0.5)/v.closestWall.height + 0.5));
     }
     else if(channel == 3)
     {
-        return texture(iChannel3, vec2(v.closestWall.t,(0.5 - v.uv.y)/v.closestWall.height));
+        return texture(iChannel3, vec2(v.closestWall.t*distance(v.closestWall.start, v.closestWall.end),(v.uv.y - 0.5)/v.closestWall.height + 0.5));
     }
     else
     {
-        return texture(iChannel0, vec2(v.closestWall.t,(0.5 - v.uv.y)/v.closestWall.height));
+        return texture(iChannel0, vec2(v.closestWall.t*distance(v.closestWall.start, v.closestWall.end),(v.uv.y - 0.5)/v.closestWall.height + 0.5));
     }
 }
 
@@ -208,7 +203,28 @@ vec4 setScene(out sView v, in sLineSegment lines[lineNumber])
         lines[i].height = v.wallHeight/(intersection(v,lines[i]) + 1.0);
         if(lines[i].height > v.closestWall.height && lines[i].hit)
         {
-            v.closestWall = lines[i];
+            if(lines[i].channel == 3 && normalize(texture(iChannel3, vec2(lines[i].t*distance(lines[i].start, lines[i].end),(v.uv.y - 0.5)/lines[i].height + 0.5))).y > 0.5)
+            {
+                lines[i].hit = false;
+            }
+            else if(lines[i].channel == 2)
+            {
+                vec4 tex = texture(iChannel2, vec2(lines[i].t*distance(lines[i].start, lines[i].end),(v.uv.y - 0.5)/lines[i].height + 0.5));
+                if(tex.x + tex.y + tex.z > 2.8)
+                {
+                    lines[i].hit = false;
+                }
+                else
+            	{
+             	   v.closestWall = lines[i];
+            	}
+                
+            }
+            else
+            {
+                v.closestWall = lines[i];
+            }
+            
         }
     }
     
@@ -218,24 +234,17 @@ vec4 setScene(out sView v, in sLineSegment lines[lineNumber])
     
 }
 
-
-//bool addWall(out sView view, in sRay ray, in sLineSegment line)
-//{
-//    float intersec = view.wallHeight/(intersection(ray,view,line) + 1.0);
-//    if(intersec > view.closestWall && line.hit)
-//    {
-//        view.closestWall = intersec;
-//        return true;
-//    }
-//    else
-//    {
-//        return false;
-//    }
-//    
-//}
-
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+    //Make sure:
+    
+    //iChannel0 is set to Abstract 1
+    //iChannel1 is set to Stars (On 3rd page of textures)
+    
+    //iChannel2 is set to Nyancat (On 2nd page of textures) and that the filter is set to nearest
+    //iChannel3 is set to Claude Van Damme (In videos) and that the filter is also set to nearest
+    
+    
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
     
@@ -243,142 +252,94 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     v.uv = uv;
     float speed = 0.025;
     
-    float moveDistance = 3.0;
+    float moveDistance = 3.5;
     
-    v.cameraAngle = (mouseUV.x + 0.0) * 2.0 * pi;
-    v.PlayerRay = initRayRads(vec2(cos(iTime * speed * 2.0 * pi) * moveDistance, sin(iTime * speed * 6.0 * pi) * moveDistance),v.cameraAngle);
+    v.cameraAngle = (mouseUV.x + 0.5) * 4.0 * pi;
+    v.PlayerRay = 
+        initRayRads(
+            vec2(
+                cos(iTime * speed * 2.0 * pi) * moveDistance, //Equation for a line that goes around the environment
+                sin(iTime * speed * 6.0 * pi) * moveDistance
+                )
+            ,v.cameraAngle
+        );
     v.fov = radians(90.0);
     
-    v.lensLen = 1.0;
+    v.lensLen = 11.0;
     
     v.perspLen = v.lensLen/(2.0 *tan(v.fov));
     
-    v.groundColor = mix(vec4(0.5, 0.3, 0.1,1.0), vec4(0.0,0.0,0.0,0.0),uv.y);
-    v.skyColor = mix(vec4(0.7, 0.9, 0.9, 1.0), vec4(0.9, 0.4, 0.1, 1.0), 1.0 - uv.y);
+    v.groundColor = mix(vec4(0.164, 0.031, 0.549,1.0), vec4(0.0,0.0,0.0,0.0),uv.y);
+    v.skyColor = mix(texture(iChannel1, uv), vec4(0.643, 0.074, 0.803,1.0), 1.0-uv.y * 0.9);//mix(vec4(0.7, 0.9, 0.9, 1.0), vec4(0.9, 0.4, 0.1, 1.0), 1.0 - uv.y);
     
     v.currRay = initRayRads(v.PlayerRay.origin, (0.5 * v.fov) * (0.5 - uv.x) + v.cameraAngle);
     
     
     sLineSegment lines[lineNumber] = sLineSegment[lineNumber]
     (
-        initLine(vec2(-4,-3), vec2(-3,-3),0),
-        initLine(vec2(-3,-3), vec2(-3,-4),0),
-        initLine(vec2(-3,-4), vec2(-4,-4),0),
-        initLine(vec2(-4,-4), vec2(-4,-3),0),
-        initLine(vec2(-3,-3), vec2(-2,-3),0),
-        initLine(vec2(-2,-3), vec2(-2,-4),0),
-        initLine(vec2(-2,-4), vec2(-3,-4),0),
-        initLine(vec2(-3,-4), vec2(-3,-3),0),
-        initLine(vec2(-2,-3), vec2(-1,-3),0),
-        initLine(vec2(-1,-3), vec2(-1,-4),0),
-        initLine(vec2(-1,-4), vec2(-2,-4),0),
-        initLine(vec2(-2,-4), vec2(-2,-3),0),
-        initLine(vec2(-1,-3), vec2( 0,-3),0),
-        initLine(vec2( 0,-3), vec2( 0,-4),0),
-        initLine(vec2( 0,-4), vec2(-1,-4),0),
-        initLine(vec2(-1,-4), vec2(-1,-3),0),
-        initLine(vec2( 0,-3), vec2( 1,-3),0),
-        initLine(vec2( 1,-3), vec2( 1,-4),0),
-        initLine(vec2( 1,-4), vec2( 0,-4),0),
-        initLine(vec2( 0,-4), vec2( 0,-3),0),
-        initLine(vec2( 1,-3), vec2( 2,-3),0),
-        initLine(vec2( 2,-3), vec2( 2,-4),0),
-        initLine(vec2( 2,-4), vec2( 1,-4),0),
-        initLine(vec2( 1,-4), vec2( 1,-3),0),
-        initLine(vec2( 2,-3), vec2( 3,-3),0),
-        initLine(vec2( 3,-3), vec2( 3,-4),0),
-        initLine(vec2( 3,-4), vec2( 2,-4),0),
-        initLine(vec2( 2,-4), vec2( 2,-3),0),
-        initLine(vec2( 3,-3), vec2( 4,-3),0),
-        initLine(vec2( 4,-3), vec2( 4,-4),0),
-        initLine(vec2( 4,-4), vec2( 3,-4),0),
-        initLine(vec2( 3,-4), vec2( 3,-3),0),
-        initLine(vec2(-4,-2), vec2(-3,-2),0),
-        initLine(vec2(-3,-2), vec2(-3,-3),0),
-        initLine(vec2(-3,-3), vec2(-4,-3),0),
-        initLine(vec2(-4,-3), vec2(-4,-2),0),
-        initLine(vec2( 3,-2), vec2( 4,-2),0),
-        initLine(vec2( 4,-2), vec2( 4,-3),0),
-        initLine(vec2( 4,-3), vec2( 3,-3),0),
-        initLine(vec2( 3,-3), vec2( 3,-2),0),
-        initLine(vec2(-4,-1), vec2(-3,-1),0),
-        initLine(vec2(-3,-1), vec2(-3,-2),0),
-        initLine(vec2(-3,-2), vec2(-4,-2),0),
-        initLine(vec2(-4,-2), vec2(-4,-1),0),
-        initLine(vec2( 3,-1), vec2( 4,-1),0),
-        initLine(vec2( 4,-1), vec2( 4,-2),0),
-        initLine(vec2( 4,-2), vec2( 3,-2),0),
-        initLine(vec2( 3,-2), vec2( 3,-1),0),
-        initLine(vec2(-4, 0), vec2(-3, 0),0),
-        initLine(vec2(-3, 0), vec2(-3,-1),0),
-        initLine(vec2(-3,-1), vec2(-4,-1),0),
-        initLine(vec2(-4,-1), vec2(-4, 0),0),
-        initLine(vec2( 3, 0), vec2( 4, 0),0),
-        initLine(vec2( 4, 0), vec2( 4,-1),0),
-        initLine(vec2( 4,-1), vec2( 3,-1),0),
-        initLine(vec2( 3,-1), vec2( 3, 0),0),
-        initLine(vec2(-4, 1), vec2(-3, 1),0),
-        initLine(vec2(-3, 1), vec2(-3, 0),0),
-        initLine(vec2(-3, 0), vec2(-4, 0),0),
-        initLine(vec2(-4, 0), vec2(-4, 1),0),
-        initLine(vec2( 3, 1), vec2( 4, 1),0),
-        initLine(vec2( 4, 1), vec2( 4, 0),0),
-        initLine(vec2( 4, 0), vec2( 3, 0),0),
-        initLine(vec2( 3, 0), vec2( 3, 1),0),
-        initLine(vec2(-4, 2), vec2(-3, 2),0),
-        initLine(vec2(-3, 2), vec2(-3, 1),0),
-        initLine(vec2(-3, 1), vec2(-4, 1),0),
-        initLine(vec2(-4, 1), vec2(-4, 2),0),
-        initLine(vec2( 3, 2), vec2( 4, 2),0),
-        initLine(vec2( 4, 2), vec2( 4, 1),0),
-        initLine(vec2( 4, 1), vec2( 3, 1),0),
-        initLine(vec2( 3, 1), vec2( 3, 2),0),
-        initLine(vec2(-4, 3), vec2(-3, 3),0),
-        initLine(vec2(-3, 3), vec2(-3, 2),0),
-        initLine(vec2(-3, 2), vec2(-4, 2),0),
-        initLine(vec2(-4, 2), vec2(-4, 3),0),
-        initLine(vec2( 3, 3), vec2( 4, 3),0),
-        initLine(vec2( 4, 3), vec2( 4, 2),0),
-        initLine(vec2( 4, 2), vec2( 3, 2),0),
-        initLine(vec2( 3, 2), vec2( 3, 3),0),
-        initLine(vec2(-4, 4), vec2(-3, 4),0),
-        initLine(vec2(-3, 4), vec2(-3, 3),0),
-        initLine(vec2(-3, 3), vec2(-4, 3),0),
-        initLine(vec2(-4, 3), vec2(-4, 4),0),
-        initLine(vec2(-3, 4), vec2(-2, 4),0),
-        initLine(vec2(-2, 4), vec2(-2, 3),0),
-        initLine(vec2(-2, 3), vec2(-3, 3),0),
-        initLine(vec2(-3, 3), vec2(-3, 4),0),
-        initLine(vec2(-2, 4), vec2(-1, 4),0),
-        initLine(vec2(-1, 4), vec2(-1, 3),0),
-        initLine(vec2(-1, 3), vec2(-2, 3),0),
-        initLine(vec2(-2, 3), vec2(-2, 4),0),
-        initLine(vec2(-1, 4), vec2( 0, 4),0),
-        initLine(vec2( 0, 4), vec2( 0, 3),0),
-        initLine(vec2( 0, 3), vec2(-1, 3),0),
-        initLine(vec2(-1, 3), vec2(-1, 4),0),
-        initLine(vec2( 0, 4), vec2( 1, 4),0),
-        initLine(vec2( 1, 4), vec2( 1, 3),0),
-        initLine(vec2( 1, 3), vec2( 0, 3),0),
-        initLine(vec2( 0, 3), vec2( 0, 4),0),
-        initLine(vec2( 1, 4), vec2( 2, 4),0),
-        initLine(vec2( 2, 4), vec2( 2, 3),0),
-        initLine(vec2( 2, 3), vec2( 1, 3),0),
-        initLine(vec2( 1, 3), vec2( 1, 4),0),
-        initLine(vec2( 2, 4), vec2( 3, 4),0),
-        initLine(vec2( 3, 4), vec2( 3, 3),0),
-        initLine(vec2( 3, 3), vec2( 2, 3),0),
-        initLine(vec2( 2, 3), vec2( 2, 4),0),
-        initLine(vec2( 3, 4), vec2( 4, 4),0),
-        initLine(vec2( 4, 4), vec2( 4, 3),0),
-        initLine(vec2( 4, 3), vec2( 3, 3),0),
-        initLine(vec2( 3, 3), vec2( 3, 4),0)
-     );
-    
-    
-    
-    
-    
+        
+        //Edges
+        initLine(vec2(-4,4),vec2(4,4),0),
+        initLine(vec2(4,4),vec2(4,-4),0),
+        initLine(vec2(4,-4),vec2(-4,-4),0),
+        initLine(vec2(-4,-4),vec2(-4,4),0),
+        
+        //Hallway
+        initLine(vec2(-3,-2),vec2(-3,2),1),
+        initLine(vec2(3,-2),vec2(3,2),1),
+        
+        //Along the hallway
+        initLine(vec2(-3,1), vec2(-3.25,0),3),
+        initLine(vec2(-3.25,0), vec2(-3,-1),3),
+        initLine(vec2(3,1), vec2(3.25,0),3),
+        initLine(vec2(3.25,0), vec2(3,-1),3),
+        
+        //Wedges
+        initLine(vec2(-3,-4),      vec2(-1.75,-1.5),2),
+        initLine(vec2(-1.75,-1.5), vec2(-1,-4),2),
+        
+        initLine(vec2(-3,4),       vec2(-1.75,1.5),2),
+        initLine(vec2(-1.75,1.5),  vec2(-1,4),2),
+        
+        initLine(vec2(3,-4),       vec2(1.75,-1.5),2),
+        initLine(vec2(1.75,-1.5),  vec2(1,-4),2),
+        
+        initLine(vec2(3,4),        vec2(1.75,1.5),2),
+        initLine(vec2(1.75,1.5),   vec2(1,4),2),
+        
+        //Behind the wedges
+        initLine(vec2(-2.5,-4),    vec2(-1.75,-2),1),
+        initLine(vec2(-1.75,-2),   vec2(-1.5,-4),1),
+        
+        initLine(vec2(-2.5,4),     vec2(-1.75,2),1),
+        initLine(vec2(-1.75,2),    vec2(-1.5,4),1),
+        
+        initLine(vec2(2.5,-4),     vec2(1.75,-2),1),
+        initLine(vec2(1.75,-2),    vec2(1.5,-4),1),
+        
+        initLine(vec2(2.5,4),      vec2(1.75,2),1),
+        initLine(vec2(1.75,2),     vec2(1.5,4),1),
+        
+        //Cross
+        initLine(vec2(0,1), vec2(0,-1),1),
+        initLine(vec2(1,0), vec2(-1,0),1),
+        
+        
+        //Points
+        //initLine(vec2(-0.5,-1.5), vec2(0,-2.5),3),
+        //initLine(vec2(0,-2.5), vec2(0.5,-1.5),3),
+        
+        //initLine(vec2(0.5,1.5), vec2(0,2.5),3),
+        //initLine(vec2(0,2.5), vec2(-0.5,1.5),3)
+        
+        initLine(vec2(0,0.5), vec2(0.5,0),3),
+        initLine(vec2(0.5,0), vec2(0,-0.5),3),
+        initLine(vec2(0,-0.5), vec2(-0.5,0),3),
+        initLine(vec2(-0.5,0), vec2(0,0.5),3)
+        
+        
+        
+    );
     
     fragColor = setScene(v, lines);
 }
