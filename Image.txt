@@ -1,106 +1,5 @@
-const float pi = 3.14159265;
+const int lineNumber = 36;
 
-const int lineNumber = 32;
-
-struct sRay
-{
-    vec2 origin;
-    vec2 direction;
-};
-
-struct sLineSegment
-{
-    vec2 start;
-    vec2 end;
-    int channel;
-    bool hit;
-    float t;
-    float height;
-};
-    
-struct sPlane
-{
-    vec3 point;
-    vec3 normal;
-};
-
-struct sView
-{
-    sRay PlayerRay;
-    sRay currRay;
-    float cameraAngle;
-    float fov;
-    float wallHeight;
-    sLineSegment closestWall;
-    vec4 wallColor;
-    vec2 uv;
-    float perspLen;
-    float lensLen;
-    
-    vec4 skyColor;
-    vec4 groundColor;
-    
-};
-    
-    
-    
-
-    
-
-
-sView initView(float wallHeight)
-{
-    sView view;
-    view.wallHeight = wallHeight;
-    
-    return view;
-}
-
-
-
-sLineSegment initLine(vec2 start, vec2 end, int channel)
-{
-    sLineSegment line;
-    line.start = start;
-    line.end = end;
-    line.channel = channel;
-    return line;
-}
-
-sLineSegment initLine(vec2 start, vec2 end)
-{
-    return initLine(start, end, 0);
-}
-
-float toRad(in vec2 direction)
-{
-    return atan(direction.x/direction.y);
-}
-
-float angleToUV(in float rad)
-{
-    return rad/(2.0 * 3.141592);
-}
-
-
-
-//Sets the ray direction to a normalized vector
-//Direction has a range of -1.0 to 1.0 in each axis
-sRay initRayRads(in vec2 origin, in float rad)
-{
-    sRay ray;
-    ray.origin = origin;
-    ray.direction = vec2(cos(rad),sin(rad));
-    return ray;
-}
-
-sRay initRayUV(in vec2 origin, in vec2 uv)
-{
-    sRay ray;
-    float twoPi = 6.28318;
-    float rad = twoPi * uv.x;
-    return initRayRads(origin, rad);
-}
 
 //Multiply result by whatever color to display
 //Displays the distance from 0(closest) to 1(furthest)
@@ -113,24 +12,8 @@ vec4 setDistance(in sView v)
     return visible ? v.wallColor * (1.0/v.closestWall.height*v.closestWall.height) : backgroundColor;
 }
 
-vec2 angToVec(float rad)
-{
-    return vec2
-        (
-            cos(rad),
-            sin(rad)
-        );
-}
 
-float angleOf(vec2 direction)
-{
-    float angle = atan(direction.x/direction.y);
-    if(direction.y < 0.0)
-    {
-        angle += pi;
-    }
-    return angle;
-}
+
 
 float intersection(out sView v, out sLineSegment line)
 {
@@ -238,7 +121,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     //Make sure:
     
-    //iChannel0 is set to Abstract 1
+    //iChannel0 is set to Organic 2
     //iChannel1 is set to Stars (On 3rd page of textures)
     
     //iChannel2 is set to Nyancat (On 2nd page of textures) and that the filter is set to nearest
@@ -256,32 +139,24 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
     
-    sView v = initView(1.0);
-    v.uv = uv;
-    float speed = 0.025;
     
+    
+    float speed = 0.025;
     float moveDistance = 3.5;
     
-    v.cameraAngle = (mouseUV.x + 0.5) * 4.0 * pi;
-    v.PlayerRay = 
-        initRayRads(
-            vec2(
+    sView v = initView(
+        uv,//uv 
+        (mouseUV.x + 0.5) * 4.0 * pi,//cameraAngle
+        vec2(//playerPosition
                 cos(iTime * speed * 2.0 * pi) * moveDistance, //Equation for a line that goes around the environment
                 sin(iTime * speed * 6.0 * pi) * moveDistance
-                )
-            ,v.cameraAngle
-        );
-    v.fov = radians(90.0);
-    
-    v.lensLen = 1.0;
-    
-    v.perspLen = v.lensLen/(2.0 *tan(v.fov));
-    
-    v.groundColor = mix(vec4(0.164, 0.031, 0.549,1.0), vec4(0.0,0.0,0.0,0.0),uv.y);
-    v.skyColor = mix(texture(iChannel1, uv), vec4(0.643, 0.074, 0.803,1.0), 1.0-uv.y * 0.9);//mix(vec4(0.7, 0.9, 0.9, 1.0), vec4(0.9, 0.4, 0.1, 1.0), 1.0 - uv.y);
-    
-    v.currRay = initRayRads(v.PlayerRay.origin, (0.5 * v.fov) * (0.5 - uv.x) + v.cameraAngle);
-    
+                ),
+        radians(90.0),//fov
+        1.0,//lensLen
+        1.0,
+        mix(texture(iChannel1, uv), vec4(0.643, 0.074, 0.803,1.0), 1.0-uv.y * 0.9),//skyColor 
+        mix(vec4(0.164, 0.031, 0.549,1.0), vec4(0.0,0.0,0.0,0.0),uv.y)//groundColor
+    );
     
     sLineSegment lines[lineNumber] = sLineSegment[lineNumber]
     (
@@ -334,19 +209,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         
         
         //Points
-        //initLine(vec2(-0.5,-1.5), vec2(0,-2.5),3),
-        //initLine(vec2(0,-2.5), vec2(0.5,-1.5),3),
+        initLine(vec2(-0.5,-1.5), vec2(0,-2.5),2),
+        initLine(vec2(0,-2.5), vec2(0.5,-1.5),2),
         
-        //initLine(vec2(0.5,1.5), vec2(0,2.5),3),
-        //initLine(vec2(0,2.5), vec2(-0.5,1.5),3)
+        initLine(vec2(0.5,1.5), vec2(0,2.5),2),
+        initLine(vec2(0,2.5), vec2(-0.5,1.5),2),
         
         initLine(vec2(0,0.5), vec2(0.5,0),3),
         initLine(vec2(0.5,0), vec2(0,-0.5),3),
         initLine(vec2(0,-0.5), vec2(-0.5,0),3),
         initLine(vec2(-0.5,0), vec2(0,0.5),3)
-        
-        
-        
     );
     
     fragColor = setScene(v, lines);

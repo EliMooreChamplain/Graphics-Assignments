@@ -1,0 +1,130 @@
+const float pi = 3.14159265;
+
+struct sRay
+{
+    vec2 origin;
+    vec2 direction;
+};
+
+struct sLineSegment
+{
+    vec2 start;
+    vec2 end;
+    int channel;
+    bool hit;
+    float t;
+    float height;
+};
+    
+struct sPlane
+{
+    vec3 point;
+    vec3 normal;
+};
+
+struct sView
+{
+    sRay PlayerRay;
+    sRay currRay;
+    float cameraAngle;
+    float fov;
+    float wallHeight;
+    sLineSegment closestWall;
+    vec4 wallColor;
+    vec2 uv;
+    float perspLen;
+    float lensLen;
+    
+    vec4 skyColor;
+    vec4 groundColor;
+    
+};
+    
+
+
+sLineSegment initLine(vec2 start, vec2 end, int channel)
+{
+    sLineSegment line;
+    line.start = start;
+    line.end = end;
+    line.channel = channel;
+    return line;
+}
+
+sLineSegment initLine(vec2 start, vec2 end)
+{
+    return initLine(start, end, 0);
+}
+
+float toRad(in vec2 direction)
+{
+    return atan(direction.x/direction.y);
+}
+
+float angleToUV(in float rad)
+{
+    return rad/(2.0 * 3.141592);
+}
+
+vec2 angToVec(float rad)
+{
+    return vec2
+        (
+            cos(rad),
+            sin(rad)
+        );
+}
+
+float angleOf(vec2 direction)
+{
+    float angle = atan(direction.x/direction.y);
+    if(direction.y < 0.0)
+    {
+        angle += pi;
+    }
+    return angle;
+}
+
+
+
+//Sets the ray direction to a normalized vector
+//Direction has a range of -1.0 to 1.0 in each axis
+sRay initRayRads(in vec2 origin, in float rad)
+{
+    sRay ray;
+    ray.origin = origin;
+    ray.direction = vec2(cos(rad),sin(rad));
+    return ray;
+}
+
+sRay initRayUV(in vec2 origin, in vec2 uv)
+{
+    sRay ray;
+    float twoPi = 6.28318;
+    float rad = twoPi * uv.x;
+    return initRayRads(origin, rad);
+}
+
+sView initView(vec2 uv, float cameraAngle, vec2 playerPosition, float fov, float lensLen, float wallHeight, vec4 skyColor, vec4 groundColor)
+{
+    sView v;
+    
+    v.uv = uv;
+    
+    v.cameraAngle = cameraAngle;
+    
+    v.PlayerRay = initRayRads(playerPosition, cameraAngle);
+    
+    v.fov = fov;
+    
+    v.currRay = initRayRads(v.PlayerRay.origin, (0.5 * v.fov) * (0.5 - uv.x) + v.cameraAngle);
+    
+    v.skyColor = skyColor;
+    v.groundColor = groundColor;
+    
+    v.wallHeight = wallHeight;
+    
+    v.perspLen = v.lensLen/(2.0 *tan(v.fov));
+    
+    return v;
+}
