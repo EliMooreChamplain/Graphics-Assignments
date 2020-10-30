@@ -245,6 +245,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     //iChannel3 is set to Claude Van Damme (In videos) and that the filter is also set to nearest
     
     
+    
+    /*
+	Things I want to improve in the future:
+	- Right now the code checks every single rectangle at every single moment. Maybe there's a way to see if the vertex is within the fov
+	- There are still quite a few conditionals. I want to make sure that there are as few if statements as possible.
+	- If there is a way to stop iterating so much, I would like to do that, as it would save a lot of time. 
+	*/
+    
     vec2 mouseUV = iMouse.xy / iResolution.xy;
     vec2 uv = fragCoord.xy/iResolution.xy;
     
@@ -265,7 +273,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         );
     v.fov = radians(90.0);
     
-    v.lensLen = 11.0;
+    v.lensLen = 1.0;
     
     v.perspLen = v.lensLen/(2.0 *tan(v.fov));
     
