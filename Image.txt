@@ -1,6 +1,5 @@
 const int lineNumber = 36;
 
-
 //Multiply result by whatever color to display
 //Displays the distance from 0(closest) to 1(furthest)
 vec4 setDistance(in sView v)
@@ -11,9 +10,6 @@ vec4 setDistance(in sView v)
     
     return visible ? v.wallColor * (1.0/v.closestWall.height*v.closestWall.height) : backgroundColor;
 }
-
-
-
 
 float intersection(out sView v, out sLineSegment line)
 {
@@ -86,15 +82,17 @@ vec4 setScene(out sView v, in sLineSegment lines[lineNumber])
         lines[i].height = v.wallHeight/(intersection(v,lines[i]) + 1.0);
         if(lines[i].height > v.closestWall.height && lines[i].hit)
         {
+            
+            //Specific cases for greenscreen
             if(lines[i].channel == 3 && normalize(texture(iChannel3, vec2(lines[i].t*distance(lines[i].start, lines[i].end),(v.uv.y - 0.5)/lines[i].height + 0.5))).y > 0.5)
-            {
+            {//If too green
                 lines[i].hit = false;
             }
             else if(lines[i].channel == 2)
             {
                 vec4 tex = texture(iChannel2, vec2(lines[i].t*distance(lines[i].start, lines[i].end),(v.uv.y - 0.5)/lines[i].height + 0.5));
                 if(tex.x + tex.y + tex.z > 2.8)
-                {
+                {//If too white
                     lines[i].hit = false;
                 }
                 else
@@ -120,10 +118,8 @@ vec4 setScene(out sView v, in sLineSegment lines[lineNumber])
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     //Make sure:
-    
     //iChannel0 is set to Organic 2
     //iChannel1 is set to Stars (On 3rd page of textures)
-    
     //iChannel2 is set to Nyancat (On 2nd page of textures) and that the filter is set to nearest
     //iChannel3 is set to Claude Van Damme (In videos) and that the filter is also set to nearest
     
@@ -146,16 +142,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     sView v = initView(
         uv,//uv 
-        (mouseUV.x + 0.5) * 4.0 * pi,//cameraAngle
-        vec2(//playerPosition
+        (mouseUV.x + 0.5) * 4.0 * pi,//Camera Angle
+        vec2(//Player Position
                 cos(iTime * speed * 2.0 * pi) * moveDistance, //Equation for a line that goes around the environment
                 sin(iTime * speed * 6.0 * pi) * moveDistance
                 ),
         radians(90.0),//fov
-        1.0,//lensLen
-        1.0,
-        mix(texture(iChannel1, uv), vec4(0.643, 0.074, 0.803,1.0), 1.0-uv.y * 0.9),//skyColor 
-        mix(vec4(0.164, 0.031, 0.549,1.0), vec4(0.0,0.0,0.0,0.0),uv.y)//groundColor
+        1.0,//Length of the camera plane
+        1.0,//WallHeight
+        mix(texture(iChannel1, uv), vec4(0.643, 0.074, 0.803,1.0), 1.0-uv.y * 0.9),//Sky Color 
+        mix(vec4(0.164, 0.031, 0.549,1.0), vec4(0.0,0.0,0.0,0.0),uv.y)//Ground Color
     );
     
     sLineSegment lines[lineNumber] = sLineSegment[lineNumber]
