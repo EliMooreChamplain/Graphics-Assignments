@@ -12,7 +12,10 @@ in vec3 vNormal;
 in vec4 vPosition;
 in float vTime;
 in float vVertexDiffuse;
+in float vVertexSpecular;
 in sPL pl;
+
+vec3 normal;
 
 uniform sampler2D uTex;
 uniform sampler2D uSpecularMask;
@@ -20,7 +23,7 @@ uniform sampler2D uLightMask;
 
 layout (location = 0) out vec4 rtFragColor;
 
-
+const float pi = 3.141592;
 
 float fragDiffuseIntensity()
 {
@@ -37,7 +40,7 @@ float fragDiffuseIntensity()
     return diffuseCoefficient * attenuatedIntensity;
 }
 
-float calcSpecIntensity(float specular)
+float fragSpecIntensity(float specular)
 {
 	vec3 lightVector = normalize(pl.center.xyz);
 	
@@ -47,17 +50,18 @@ float calcSpecIntensity(float specular)
     vec3 viewVec;          //View Vector
     vec3 halfVec;          //Halfway Vector
     
-    viewVec = vNormal;
+    viewVec = normal;
         
     halfVec = normalize(lightVector + viewVec);
         
-    specCo = max(0.0,dot(vNormal,halfVec));
+    specCo = max(0.0,dot(normal,halfVec));
     
     return pow(specCo, specular * 4.0);
 }
 
 void main() {
-	
+	float twoPi = 2.0 * pi;
+	normal = vNormal;//normalize(vec3(cos(twoPi * vTexCoord.x), -1.0 * sin(twoPi * (1.0 - vTexCoord.x)),cos(pi * vTexCoord.y)));
 	vec2 offset = vec2(0.0,0.0);//vec2(time * 0.125,0);
 	
 	float specular = 16.0;
@@ -74,7 +78,7 @@ void main() {
 	
 	float diffuseIntensity = fragDiffuseIntensity();//vVertexIntensity;
 	
-	float specIntensity = calcSpecIntensity(specular);
+	float specIntensity = vVertexSpecular;//fragSpecIntensity(specular);
 	
 	vec4 color = texture(uTex, vTexCoord + offset);//vec4(normal,1);
 	
@@ -90,5 +94,5 @@ void main() {
         max(0.0,0.5 - diffuseIntensity * 2.0) * lightMask * 2.0;
     
     
-	rtFragColor = finalColor;//texture(uTex, vTexCoord);
+	rtFragColor = finalColor;//vec4(normal,1);//vec4(1,1,1,1) * vTexCoord.y;//texture(uTex, vTexCoord);
 }

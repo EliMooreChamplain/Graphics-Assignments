@@ -16,7 +16,6 @@
 					<width>1</width>
 					<height>1</height>
 					<depth>1</depth>
-					<pitch>4.71238899</pitch>
 					<topology>TriangleList</topology>
 				</item>
 			</items>
@@ -43,12 +42,13 @@
 	</objects>
 	<cameras />
 	<settings>
+		<entry type="property" name="gSphere" item="pipe" />
 		<entry type="file" name="Shader" shader="vs" />
 		<entry type="file" name="Shader" shader="ps" />
 		<entry type="camera" fp="false">
 			<distance>4</distance>
 			<pitch>19</pitch>
-			<yaw>256</yaw>
+			<yaw>284</yaw>
 			<roll>360</roll>
 		</entry>
 		<entry type="clearcolor" r="0" g="0" b="0" a="0" />

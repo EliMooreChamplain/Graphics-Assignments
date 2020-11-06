@@ -12,8 +12,11 @@ uniform float uTime;
 out vec2 vTexCoord;
 out vec3 vNormal;
 out vec4 position;
-out float time;
+out float vTime;
 out float vVertexDiffuse;
+out float vVertexSpecular;
+
+const float pi = 3.141592;
 
 struct sPL
 {
@@ -21,10 +24,27 @@ struct sPL
 	vec4 color;
 	float intensity;
 };
-
 out sPL pl;
 
-void calcDiffuseIntensity(sPL pl)
+mat3 rotationZ(float rads)
+{
+	mat3 rotation = mat3(
+		1, 0, 0,
+		0, cos(rads),-1.0 * sin(rads),
+		0, sin(rads),cos(rads)
+	);
+	return rotation;
+}
+
+mat3 rotationY(float rads)
+{
+	return mat3(
+		cos(rads), 0, sin(rads),
+		0,1,0,
+		-1.0 * sin(rads),0,cos(rads)
+	);
+}
+void calcDiffuseIntensity()
 {
 	vec3 lightVector = normalize(pl.center.xyz);
 	float diffuseCoefficient = max(0.0,dot(aNormal,lightVector));
@@ -39,16 +59,36 @@ void calcDiffuseIntensity(sPL pl)
     vVertexDiffuse = diffuseCoefficient * attenuatedIntensity;
 }
 
+void calcSpecIntensity(float specular)
+{
+	vec3 lightVector = normalize(pl.center.xyz);
+    
+    float specIntensity;   //Specular Intensity
+    float specCo;          //Specular Coefficient
+    vec3 viewVec;          //View Vector
+    vec3 halfVec;          //Halfway Vector
+    
+    viewVec = vNormal;
+        
+    halfVec = normalize(lightVector + viewVec);
+        
+    specCo = max(0.0,dot(vNormal,halfVec));
+    
+    vVertexSpecular = pow(specCo, specular * 4.0);
+}
+
 void main() {
+	mat4 rot = mat4(rotationY(uTime * 0.25)) * mat4(rotationZ(pi * 0.5));
 	mat4 modelViewProjMat = uProjMat * uViewMat * uModelMat;
-	gl_Position = modelViewProjMat * aPosition;
+	gl_Position = modelViewProjMat * rot * aPosition;
 	vTexCoord = aTexCoord;
-	vNormal = aNormal;
+	vNormal = (rot * vec4(aNormal,1)).xyz;
 	position = aPosition;
-	time = uTime;
+	vTime = uTime;
 	
-	pl.center = vec4(5,5,5,1);
+	pl.center = vec4(5,5,-5,1);
 	pl.color = vec4(1,1,1,1);
-	pl.intensity = 100.0;
-	calcDiffuseIntensity(pl);
+	pl.intensity = 1000.0;
+	calcDiffuseIntensity();
+	calcSpecIntensity(32);
 }
