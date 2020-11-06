@@ -2,8 +2,8 @@
 <project version="2">
 	<pipeline>
 		<pass name="Shader" type="shader" active="true">
-			<shader type="vs" path="shaders/Project_ShaderVS.glsl" entry="main" />
-			<shader type="ps" path="shaders/Project_ShaderPS.glsl" entry="main" />
+			<shader type="vs" path="shaders\Project_ShaderVS.glsl" entry="main" />
+			<shader type="ps" path="shaders\Project_ShaderPS.glsl" entry="main" />
 			<inputlayout>
 				<item value="Position" semantic="POSITION" />
 				<item value="Normal" semantic="NORMAL" />
@@ -31,19 +31,24 @@
 		</pass>
 	</pipeline>
 	<objects>
-		<object type="texture" path="..\..\..\..\Users\eli64\Downloads\earth_dm.png" vflip="true" min_filter="Linear" mag_filter="Nearest" wrap_s="Repeat" wrap_t="Repeat">
+		<object type="texture" path="textures\Earth.jpg" vflip="true" min_filter="Linear" mag_filter="Nearest" wrap_s="Repeat" wrap_t="Repeat">
 			<bind slot="0" name="Shader" />
+		</object>
+		<object type="texture" path="textures\Ocean_Mask.png" vflip="true" min_filter="Linear" mag_filter="Nearest" wrap_s="Repeat" wrap_t="Repeat">
+			<bind slot="1" name="Shader" />
+		</object>
+		<object type="texture" path="textures\Lights_Mask.png" vflip="true" min_filter="Linear" mag_filter="Nearest" wrap_s="Repeat" wrap_t="Repeat">
+			<bind slot="2" name="Shader" />
 		</object>
 	</objects>
 	<cameras />
 	<settings>
-		<entry type="property" name="gSphere" item="pipe" />
 		<entry type="file" name="Shader" shader="vs" />
 		<entry type="file" name="Shader" shader="ps" />
 		<entry type="camera" fp="false">
-			<distance>5</distance>
-			<pitch>20</pitch>
-			<yaw>281</yaw>
+			<distance>4</distance>
+			<pitch>19</pitch>
+			<yaw>256</yaw>
 			<roll>360</roll>
 		</entry>
 		<entry type="clearcolor" r="0" g="0" b="0" a="0" />
