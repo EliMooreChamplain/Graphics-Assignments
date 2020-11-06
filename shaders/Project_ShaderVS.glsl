@@ -86,7 +86,7 @@ void main() {
 	position = aPosition;
 	vTime = uTime;
 	
-	pl.center = vec4(5,5,-5,1);
+	pl.center = vec4(normalize(vec3(5,5,-5)) * 2.0,1);
 	pl.color = vec4(1,1,1,1);
 	pl.intensity = 1000.0;
 	calcDiffuseIntensity();

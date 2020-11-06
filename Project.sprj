@@ -42,13 +42,12 @@
 	</objects>
 	<cameras />
 	<settings>
-		<entry type="property" name="gSphere" item="pipe" />
 		<entry type="file" name="Shader" shader="vs" />
 		<entry type="file" name="Shader" shader="ps" />
 		<entry type="camera" fp="false">
 			<distance>4</distance>
-			<pitch>19</pitch>
-			<yaw>284</yaw>
+			<pitch>8</pitch>
+			<yaw>232</yaw>
 			<roll>360</roll>
 		</entry>
 		<entry type="clearcolor" r="0" g="0" b="0" a="0" />
