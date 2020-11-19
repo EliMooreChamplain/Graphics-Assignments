@@ -11,7 +11,7 @@ uniform float uTime;
 
 out vec2 vTexCoord;
 out vec3 vNormal;
-out vec4 position;
+out vec4 vPosition;
 out float vTime;
 out float vVertexDiffuse;
 out float vVertexSpecular;
@@ -79,16 +79,16 @@ void calcSpecIntensity(float specular)
 
 void main() {
 	mat4 rot = mat4(rotationY(uTime * 0.25)) * mat4(rotationZ(pi * 0.5));
-	mat4 modelViewProjMat = uProjMat * uViewMat * uModelMat;
-	gl_Position = modelViewProjMat * rot * aPosition;
+	mat4 modelView = uViewMat * uModelMat * rot;
+	vPosition = modelView * aPosition;
+	gl_Position = uProjMat * vPosition;
 	vTexCoord = aTexCoord;
-	vNormal = (rot * vec4(aNormal,1)).xyz;
-	position = aPosition;
+	mat3 matNormal = inverse(transpose(mat3(modelView)));
+	vNormal = matNormal * aNormal;
+	
 	vTime = uTime;
 	
-	pl.center = vec4(normalize(vec3(5,5,-5)) * 2.0,1);
+	pl.center = uViewMat * vec4(0,1,-1,1);
 	pl.color = vec4(1,1,1,1);
-	pl.intensity = 1000.0;
-	calcDiffuseIntensity();
-	calcSpecIntensity(32);
+	pl.intensity = 100.0;
 }

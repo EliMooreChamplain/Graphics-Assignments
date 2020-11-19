@@ -16,6 +16,9 @@
 					<width>1</width>
 					<height>1</height>
 					<depth>1</depth>
+					<x>1.03741777</x>
+					<y>-0.569019437</y>
+					<z>1.00618362</z>
 					<topology>TriangleList</topology>
 				</item>
 			</items>
@@ -45,9 +48,9 @@
 		<entry type="file" name="Shader" shader="vs" />
 		<entry type="file" name="Shader" shader="ps" />
 		<entry type="camera" fp="false">
-			<distance>4</distance>
-			<pitch>8</pitch>
-			<yaw>232</yaw>
+			<distance>5</distance>
+			<pitch>9</pitch>
+			<yaw>67</yaw>
 			<roll>360</roll>
 		</entry>
 		<entry type="clearcolor" r="0" g="0" b="0" a="0" />

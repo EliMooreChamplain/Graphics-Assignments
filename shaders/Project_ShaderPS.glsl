@@ -15,7 +15,7 @@ in float vVertexDiffuse;
 in float vVertexSpecular;
 in sPL pl;
 
-vec3 normal;
+
 
 uniform sampler2D uTex;
 uniform sampler2D uSpecularMask;
@@ -25,10 +25,10 @@ layout (location = 0) out vec4 rtFragColor;
 
 const float pi = 3.141592;
 
-float fragDiffuseIntensity()
+float fragDiffuseIntensity(in vec3 normal)
 {
-	vec3 lightVector = normalize(pl.center.xyz);
-	float diffuseCoefficient = max(0.0,dot(vNormal,lightVector));
+	vec3 lightVector = normalize(pl.center.xyz - vPosition.xyz);
+	float diffuseCoefficient = max(0.0,dot(normal,lightVector));
 	
 	float slDist = distance(pl.center.xyz,vPosition.xyz);
 	
@@ -40,9 +40,9 @@ float fragDiffuseIntensity()
     return diffuseCoefficient * attenuatedIntensity;
 }
 
-float fragSpecIntensity(float specular)
+float fragSpecIntensity(in float specular, in vec3 normal)
 {
-	vec3 lightVector = normalize(pl.center.xyz);
+	vec3 lightVector = normalize(pl.center.xyz - vPosition.xyz);
 	
     
     float specIntensity;   //Specular Intensity
@@ -50,7 +50,7 @@ float fragSpecIntensity(float specular)
     vec3 viewVec;          //View Vector
     vec3 halfVec;          //Halfway Vector
     
-    viewVec = normal;
+    viewVec = normalize(-vPosition.xyz);
         
     halfVec = normalize(lightVector + viewVec);
         
@@ -61,7 +61,7 @@ float fragSpecIntensity(float specular)
 
 void main() {
 	float twoPi = 2.0 * pi;
-	normal = vNormal;//normalize(vec3(cos(twoPi * vTexCoord.x), -1.0 * sin(twoPi * (1.0 - vTexCoord.x)),cos(pi * vTexCoord.y)));
+	vec3 normal = normalize(vNormal);
 	vec2 offset = vec2(0.0,0.0);//vec2(time * 0.125,0);
 	
 	float specular = 16.0;
@@ -76,9 +76,9 @@ void main() {
 	//pl.color = vec4(1,1,1,1);
 	//pl.intensity = 100.0;
 	
-	float diffuseIntensity = fragDiffuseIntensity();//vVertexIntensity;
+	float diffuseIntensity = fragDiffuseIntensity(normal.xyz);//vVertexIntensity;
 	
-	float specIntensity = vVertexSpecular;//fragSpecIntensity(specular);
+	float specIntensity = fragSpecIntensity(specular, normal.xyz);
 	
 	vec4 color = texture(uTex, vTexCoord + offset);//vec4(normal,1);
 	
